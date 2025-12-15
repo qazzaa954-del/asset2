@@ -161,6 +161,7 @@ export type Database = {
           photo_after: string | null
           status: 'Pending' | 'In Progress' | 'Completed' | 'Cancelled'
           assigned_to: string | null
+          started_date: string | null
           completed_date: string | null
           notes: string | null
           is_scheduled: boolean
@@ -178,6 +179,7 @@ export type Database = {
           photo_after?: string | null
           status?: 'Pending' | 'In Progress' | 'Completed' | 'Cancelled'
           assigned_to?: string | null
+          started_date?: string | null
           completed_date?: string | null
           notes?: string | null
           is_scheduled?: boolean
@@ -195,6 +197,7 @@ export type Database = {
           photo_after?: string | null
           status?: 'Pending' | 'In Progress' | 'Completed' | 'Cancelled'
           assigned_to?: string | null
+          started_date?: string | null
           completed_date?: string | null
           notes?: string | null
           is_scheduled?: boolean
