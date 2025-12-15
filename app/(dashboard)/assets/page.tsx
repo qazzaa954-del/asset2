@@ -104,8 +104,12 @@ export default function AssetsPage() {
       assetData.estimated_lifespan
     )
 
+    // Hapus field 'photo' dari assetData karena tidak ada di database schema
+    // Database hanya punya 'photo_url', bukan 'photo'
+    const { photo, ...assetDataWithoutPhoto } = assetData
+
     return {
-      ...assetData,
+      ...assetDataWithoutPhoto,
       asset_code: assetCode,
       barcode: assetCode,
       book_value: bookValue,
