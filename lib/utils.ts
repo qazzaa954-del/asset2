@@ -13,6 +13,21 @@ export function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
+// Format rupiah dengan titik sebagai pemisah ribuan (tanpa Rp)
+export function formatRupiah(amount: number | string): string {
+  const num = typeof amount === 'string' ? parseFloat(amount.replace(/[^\d]/g, '')) : amount
+  if (isNaN(num)) return '0'
+  return num.toLocaleString('id-ID')
+}
+
+// Parse rupiah format (dengan titik) ke number
+export function parseRupiah(value: string): number {
+  // Hapus semua karakter non-digit kecuali koma untuk desimal
+  const cleaned = value.replace(/[^\d,]/g, '').replace(',', '.')
+  const parsed = parseFloat(cleaned)
+  return isNaN(parsed) ? 0 : parsed
+}
+
 export function formatDate(date: string | Date): string {
   return new Intl.DateTimeFormat('id-ID', {
     year: 'numeric',

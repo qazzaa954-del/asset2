@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Plus, Search, Edit, Trash2, Eye, Download, ChevronDown, Zap, Package } from 'lucide-react'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, formatRupiah, parseRupiah } from '@/lib/utils'
 import Link from 'next/link'
 
 export default function AssetsPage() {
@@ -26,7 +26,7 @@ export default function AssetsPage() {
     asset_name: '',
     location: '',
     department_id: '',
-    unit: 'Pcs',
+    unit: '1 Pcs',
     acquisition_year: new Date().getFullYear(),
     acquisition_price: 0,
     estimated_lifespan: 5,
@@ -115,11 +115,38 @@ export default function AssetsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!userProfile) return
+    if (!userProfile) {
+      alert('Anda harus login untuk menambahkan aset')
+      return
+    }
+
+    // Validasi form
+    if (!formData.asset_name || !formData.asset_name.trim()) {
+      alert('Nama aset harus diisi')
+      return
+    }
+
+    if (!formData.department_id) {
+      alert('Departemen harus dipilih')
+      return
+    }
+
+    if (!formData.acquisition_price || formData.acquisition_price <= 0) {
+      alert('Harga perolehan harus diisi dan lebih dari 0')
+      return
+    }
+
+    if (!formData.acquisition_year || formData.acquisition_year < 1900 || formData.acquisition_year > new Date().getFullYear() + 1) {
+      alert('Tahun perolehan tidak valid')
+      return
+    }
 
     try {
       const dept = departments.find((d) => d.id === formData.department_id)
-      if (!dept) return
+      if (!dept) {
+        alert('Departemen tidak ditemukan')
+        return
+      }
 
       const { data: existingAssets } = await supabase
         .from('assets')
@@ -157,10 +184,25 @@ export default function AssetsPage() {
       assetData.photo_url = photoUrl
 
       if (editingAsset && isMasterAdmin) {
-        await supabase.from('assets').update(assetData).eq('id', editingAsset.id)
+        const { error: updateError } = await supabase
+          .from('assets')
+          .update(assetData)
+          .eq('id', editingAsset.id)
+        
+        if (updateError) {
+          throw updateError
+        }
+        alert('Aset berhasil diupdate!')
       } else if (!editingAsset) {
         // Only allow insert for new assets (all users can add new assets)
-        await supabase.from('assets').insert(assetData)
+        const { error: insertError } = await supabase
+          .from('assets')
+          .insert(assetData)
+        
+        if (insertError) {
+          throw insertError
+        }
+        alert('Aset berhasil ditambahkan!')
       } else {
         alert('Hanya Master Admin yang dapat mengedit aset')
         return
@@ -176,8 +218,8 @@ export default function AssetsPage() {
       setFormData({
         asset_name: '',
         location: '',
-        department_id: '',
-        unit: 'Pcs',
+        department_id: userProfile?.department_id || '',
+        unit: '1 Pcs',
         acquisition_year: new Date().getFullYear(),
         acquisition_price: 0,
         estimated_lifespan: 5,
@@ -187,9 +229,10 @@ export default function AssetsPage() {
         photo: null,
       })
       fetchData()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving asset:', error)
-      alert('Terjadi kesalahan saat menyimpan aset')
+      const errorMessage = error.message || 'Terjadi kesalahan saat menyimpan aset'
+      alert(`Error: ${errorMessage}\n\nPastikan:\n1. Semua field sudah diisi dengan benar\n2. Harga perolehan adalah angka yang valid\n3. Foto tidak melebihi 5MB`)
     }
   }
 
@@ -235,7 +278,7 @@ export default function AssetsPage() {
         asset_name: '',
         location: '',
         department_id: '',
-        unit: 'Pcs',
+        unit: '1 Pcs',
         acquisition_year: new Date().getFullYear(),
         acquisition_price: 0,
         estimated_lifespan: 5,
@@ -530,30 +573,56 @@ export default function AssetsPage() {
                 value={formData.unit}
                 onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                 options={[
-                  { value: 'Pcs', label: 'Pcs' },
-                  { value: 'Unit', label: 'Unit' },
-                  { value: 'Set', label: 'Set' },
+                  { value: '1 Pcs', label: '1 Pcs' },
+                  { value: '2 Pcs', label: '2 Pcs' },
+                  { value: '3 Pcs', label: '3 Pcs' },
+                  { value: '5 Pcs', label: '5 Pcs' },
+                  { value: '10 Pcs', label: '10 Pcs' },
+                  { value: '1 Unit', label: '1 Unit' },
+                  { value: '2 Unit', label: '2 Unit' },
+                  { value: '3 Unit', label: '3 Unit' },
+                  { value: '5 Unit', label: '5 Unit' },
+                  { value: '1 Set', label: '1 Set' },
+                  { value: '2 Set', label: '2 Set' },
+                  { value: '3 Set', label: '3 Set' },
+                  { value: '1 Lembar', label: '1 Lembar' },
+                  { value: '2 Lembar', label: '2 Lembar' },
+                  { value: '5 Lembar', label: '5 Lembar' },
+                  { value: '10 Lembar', label: '10 Lembar' },
                 ]}
                 required
               />
               <Input
                 label="Tahun Perolehan"
                 type="number"
+                min="1900"
+                max={new Date().getFullYear() + 1}
                 value={formData.acquisition_year}
-                onChange={(e) =>
-                  setFormData({ ...formData, acquisition_year: parseInt(e.target.value) })
-                }
+                onChange={(e) => {
+                  const year = parseInt(e.target.value) || new Date().getFullYear()
+                  setFormData({ ...formData, acquisition_year: year })
+                }}
                 required
               />
-              <Input
-                label="Harga Perolehan"
-                type="number"
-                value={formData.acquisition_price}
-                onChange={(e) =>
-                  setFormData({ ...formData, acquisition_price: parseFloat(e.target.value) })
-                }
-                required
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Harga Perolehan (Rp) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.acquisition_price > 0 ? formatRupiah(formData.acquisition_price) : ''}
+                  onChange={(e) => {
+                    const parsed = parseRupiah(e.target.value)
+                    setFormData({ ...formData, acquisition_price: parsed })
+                  }}
+                  placeholder="Contoh: 1.500.000"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-sm text-gray-900 bg-white"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Format: gunakan titik (.) sebagai pemisah ribuan. Contoh: 1.500.000
+                </p>
+              </div>
               <Input
                 label="Estimasi Umur (Tahun)"
                 type="number"
@@ -600,7 +669,7 @@ export default function AssetsPage() {
                     asset_name: '',
                     location: '',
                     department_id: '',
-                    unit: 'Pcs',
+                    unit: '1 Pcs',
                     acquisition_year: new Date().getFullYear(),
                     acquisition_price: 0,
                     estimated_lifespan: 5,
@@ -673,31 +742,62 @@ export default function AssetsPage() {
                 value={formData.unit}
                 onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                 options={[
-                  { value: 'Pcs', label: 'Pcs' },
-                  { value: 'Unit', label: 'Unit' },
-                  { value: 'Set', label: 'Set' },
-                  { value: 'Lembar', label: 'Lembar' },
+                  { value: '1 Pcs', label: '1 Pcs' },
+                  { value: '2 Pcs', label: '2 Pcs' },
+                  { value: '3 Pcs', label: '3 Pcs' },
+                  { value: '5 Pcs', label: '5 Pcs' },
+                  { value: '10 Pcs', label: '10 Pcs' },
+                  { value: '1 Unit', label: '1 Unit' },
+                  { value: '2 Unit', label: '2 Unit' },
+                  { value: '3 Unit', label: '3 Unit' },
+                  { value: '5 Unit', label: '5 Unit' },
+                  { value: '1 Set', label: '1 Set' },
+                  { value: '2 Set', label: '2 Set' },
+                  { value: '3 Set', label: '3 Set' },
+                  { value: '1 Lembar', label: '1 Lembar' },
+                  { value: '2 Lembar', label: '2 Lembar' },
+                  { value: '5 Lembar', label: '5 Lembar' },
+                  { value: '10 Lembar', label: '10 Lembar' },
+                  { value: '1 Buah', label: '1 Buah' },
+                  { value: '2 Buah', label: '2 Buah' },
+                  { value: '1 Paket', label: '1 Paket' },
+                  { value: '1 Roll', label: '1 Roll' },
+                  { value: '1 Meter', label: '1 Meter' },
+                  { value: '1 Liter', label: '1 Liter' },
                 ]}
                 required
               />
               <Input
                 label="Tahun Perolehan"
                 type="number"
+                min="1900"
+                max={new Date().getFullYear() + 1}
                 value={formData.acquisition_year}
-                onChange={(e) =>
-                  setFormData({ ...formData, acquisition_year: parseInt(e.target.value) })
-                }
+                onChange={(e) => {
+                  const year = parseInt(e.target.value) || new Date().getFullYear()
+                  setFormData({ ...formData, acquisition_year: year })
+                }}
                 required
               />
-              <Input
-                label="Harga Perolehan"
-                type="number"
-                value={formData.acquisition_price}
-                onChange={(e) =>
-                  setFormData({ ...formData, acquisition_price: parseFloat(e.target.value) })
-                }
-                required
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Harga Perolehan (Rp) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.acquisition_price > 0 ? formatRupiah(formData.acquisition_price) : ''}
+                  onChange={(e) => {
+                    const parsed = parseRupiah(e.target.value)
+                    setFormData({ ...formData, acquisition_price: parsed })
+                  }}
+                  placeholder="Contoh: 1.500.000"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-sm text-gray-900 bg-white"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Format: gunakan titik (.) sebagai pemisah ribuan. Contoh: 1.500.000
+                </p>
+              </div>
               <Input
                 label="Estimasi Umur (Tahun)"
                 type="number"
@@ -756,7 +856,7 @@ export default function AssetsPage() {
                     asset_name: '',
                     location: '',
                     department_id: '',
-                    unit: 'Pcs',
+                    unit: '1 Pcs',
                     acquisition_year: new Date().getFullYear(),
                     acquisition_price: 0,
                     estimated_lifespan: 5,
