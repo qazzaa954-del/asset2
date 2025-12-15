@@ -190,12 +190,29 @@ export default function AssetsPage() {
 
       // Pastikan department_id ter-set dengan benar
       const assetData = await createAsset({ ...formData, department_id: finalDepartmentId }, sequenceNumber, dept)
-      assetData.photo_url = photoUrl
+      
+      // Pastikan hanya field yang valid yang dikirim ke database
+      // Hapus semua field yang tidak ada di schema database
+      const { photo, ...cleanAssetData } = assetData
+      
+      // Set photo_url hanya jika ada
+      if (photoUrl) {
+        cleanAssetData.photo_url = photoUrl
+      } else {
+        // Hapus photo_url jika null untuk menghindari error
+        delete cleanAssetData.photo_url
+      }
+
+      // Debug: Pastikan tidak ada field 'photo' yang terkirim
+      if ('photo' in cleanAssetData) {
+        console.error('ERROR: Field "photo" masih ada di cleanAssetData!', cleanAssetData)
+        delete cleanAssetData.photo
+      }
 
       if (editingAsset && isMasterAdmin) {
         const { error: updateError } = await supabase
           .from('assets')
-          .update(assetData)
+          .update(cleanAssetData)
           .eq('id', editingAsset.id)
         
         if (updateError) {
@@ -206,7 +223,7 @@ export default function AssetsPage() {
         // Only allow insert for new assets (all users can add new assets)
         const { error: insertError } = await supabase
           .from('assets')
-          .insert(assetData)
+          .insert(cleanAssetData)
         
         if (insertError) {
           throw insertError
@@ -289,7 +306,9 @@ export default function AssetsPage() {
           sequenceNumber + i,
           dept
         )
-        assetsToInsert.push(assetData)
+        // Pastikan hapus field 'photo' sebelum insert
+        const { photo, ...cleanAssetData } = assetData
+        assetsToInsert.push(cleanAssetData)
       }
 
       await supabase.from('assets').insert(assetsToInsert)
