@@ -85,39 +85,104 @@ export default function FinancialPage() {
   }
 
   const exportToCSV = () => {
+    // Group assets by department
+    const assetsByDepartment: { [key: string]: any[] } = {}
+    
+    assets.forEach((asset) => {
+      const deptName = (asset.departments as any)?.name || 'Tanpa Departemen'
+      if (!assetsByDepartment[deptName]) {
+        assetsByDepartment[deptName] = []
+      }
+      assetsByDepartment[deptName].push(asset)
+    })
+
+    const currentDate = new Date().toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    })
+
+    let csvContent = ''
+    
+    // Header Laporan
+    csvContent += '"LAPORAN INVENTARIS ASET"\n'
+    csvContent += '"PT. DAMAR LANGIT"\n'
+    csvContent += `"Tanggal: ${currentDate}"\n`
+    csvContent += '\n'
+
+    // Summary
+    const totalAssets = assets.length
+    const totalValue = assets.reduce((sum, a) => sum + Number(a.acquisition_price || 0), 0)
+    const totalBookValue = assets.reduce((sum, a) => sum + Number(a.book_value || 0), 0)
+    
+    csvContent += '"RINGKASAN"\n'
+    csvContent += `"Total Aset","${totalAssets}"\n`
+    csvContent += `"Total Nilai Perolehan","${formatCurrency(totalValue)}"\n`
+    csvContent += `"Total Nilai Buku","${formatCurrency(totalBookValue)}"\n`
+    csvContent += `"Total Akumulasi Penyusutan","${formatCurrency(totalValue - totalBookValue)}"\n`
+    csvContent += '\n'
+
+    // Detail per Departemen
     const headers = [
+      'No',
       'Kode Aset',
       'Nama Aset',
-      'Departemen',
+      'Kategori',
       'Lokasi',
       'Tahun Perolehan',
-      'Harga Perolehan',
-      'Nilai Buku',
+      'Umur Ekonomis (Thn)',
+      'Harga Perolehan (Rp)',
+      'Nilai Buku (Rp)',
+      'Penyusutan (Rp)',
       'Kondisi',
       'Status',
     ]
 
-    const rows = assets.map((asset) => [
-      asset.asset_code,
-      asset.asset_name,
-      (asset.departments as any)?.name || '',
-      asset.location,
-      asset.acquisition_year,
-      asset.acquisition_price,
-      asset.book_value,
-      asset.condition,
-      asset.status,
-    ])
+    Object.keys(assetsByDepartment).sort().forEach((deptName) => {
+      const deptAssets = assetsByDepartment[deptName]
+      const deptTotalValue = deptAssets.reduce((sum, a) => sum + Number(a.acquisition_price || 0), 0)
+      const deptBookValue = deptAssets.reduce((sum, a) => sum + Number(a.book_value || 0), 0)
+      
+      csvContent += '\n'
+      csvContent += `"DEPARTEMEN: ${deptName.toUpperCase()}"\n`
+      csvContent += `"Jumlah Aset: ${deptAssets.length}"\n`
+      csvContent += `"Total Nilai: ${formatCurrency(deptTotalValue)}"\n`
+      csvContent += '\n'
+      csvContent += headers.map(h => `"${h}"`).join(',') + '\n'
+      
+      deptAssets.forEach((asset, index) => {
+        const depreciation = Number(asset.acquisition_price || 0) - Number(asset.book_value || 0)
+        const row = [
+          index + 1,
+          asset.asset_code || '-',
+          asset.asset_name || '-',
+          asset.category || '-',
+          asset.location || '-',
+          asset.acquisition_year || '-',
+          asset.estimated_lifespan || '-',
+          Number(asset.acquisition_price || 0).toLocaleString('id-ID'),
+          Number(asset.book_value || 0).toLocaleString('id-ID'),
+          depreciation.toLocaleString('id-ID'),
+          asset.condition || '-',
+          asset.status || '-',
+        ]
+        csvContent += row.map(cell => `"${cell}"`).join(',') + '\n'
+      })
+      
+      // Subtotal per departemen
+      csvContent += `"","","","","","","SUBTOTAL","${deptTotalValue.toLocaleString('id-ID')}","${deptBookValue.toLocaleString('id-ID')}","${(deptTotalValue - deptBookValue).toLocaleString('id-ID')}","",""\n`
+    })
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
-    ].join('\n')
+    // Grand Total
+    csvContent += '\n'
+    csvContent += `"","","","","","","GRAND TOTAL","${totalValue.toLocaleString('id-ID')}","${totalBookValue.toLocaleString('id-ID')}","${(totalValue - totalBookValue).toLocaleString('id-ID')}","",""\n`
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    // Add BOM for Excel UTF-8 compatibility
+    const BOM = '\uFEFF'
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = `audit-aset-${new Date().toISOString().split('T')[0]}.csv`
+    link.download = `Laporan-Aset-Per-Departemen-${new Date().toISOString().split('T')[0]}.csv`
     link.click()
   }
 

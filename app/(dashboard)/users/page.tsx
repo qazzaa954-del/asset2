@@ -49,40 +49,42 @@ export default function UsersPage() {
 
     try {
       if (editingUser) {
-        // Update existing user
-        const { error } = await supabase.auth.admin.updateUserById(editingUser.id, {
-          email: formData.email,
-          ...(formData.password && { password: formData.password }),
-        })
-
-        if (error) throw error
-
-        await supabase
-          .from('users')
-          .update({
+        // Update existing user via API
+        const response = await fetch('/api/users', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingUser.id,
             email: formData.email,
+            password: formData.password || undefined,
             full_name: formData.full_name,
             role: formData.role,
             department_id: formData.department_id || null,
-          })
-          .eq('id', editingUser.id)
+          }),
+        })
+
+        const result = await response.json()
+        if (!response.ok) {
+          throw new Error(result.error || 'Gagal update user')
+        }
       } else {
-        // Create new user
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
+        // Create new user via API
+        const response = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            full_name: formData.full_name,
+            role: formData.role,
+            department_id: formData.department_id || null,
+          }),
         })
 
-        if (authError) throw authError
-        if (!authData.user) throw new Error('Failed to create user')
-
-        await supabase.from('users').insert({
-          id: authData.user.id,
-          email: formData.email,
-          full_name: formData.full_name,
-          role: formData.role,
-          department_id: formData.department_id || null,
-        })
+        const result = await response.json()
+        if (!response.ok) {
+          throw new Error(result.error || 'Gagal membuat user')
+        }
       }
 
       setShowForm(false)
@@ -95,6 +97,7 @@ export default function UsersPage() {
         password: '',
       })
       fetchData()
+      alert(editingUser ? 'User berhasil diupdate!' : 'User berhasil dibuat!')
     } catch (error: any) {
       console.error('Error saving user:', error)
       alert(error.message || 'Terjadi kesalahan saat menyimpan user')
@@ -105,11 +108,20 @@ export default function UsersPage() {
     if (!confirm('Yakin ingin menghapus user ini?')) return
 
     try {
-      await supabase.from('users').delete().eq('id', id)
-      await supabase.auth.admin.deleteUser(id)
+      const response = await fetch(`/api/users?id=${id}`, {
+        method: 'DELETE',
+      })
+
+      const result = await response.json()
+      if (!response.ok) {
+        throw new Error(result.error || 'Gagal menghapus user')
+      }
+
       fetchData()
-    } catch (error) {
+      alert('User berhasil dihapus!')
+    } catch (error: any) {
       console.error('Error deleting user:', error)
+      alert(error.message || 'Terjadi kesalahan saat menghapus user')
     }
   }
 
