@@ -241,7 +241,15 @@ export default function WorkOrdersPage() {
         photo_before: photoBeforeUrl,
       }
 
-      await supabase.from('work_orders').update(updateData).eq('id', selectedWorkOrder.id)
+      const { error: updateError } = await supabase
+        .from('work_orders')
+        .update(updateData)
+        .eq('id', selectedWorkOrder.id)
+
+      if (updateError) {
+        console.error('Update error:', updateError)
+        throw updateError
+      }
       
       setShowStartModal(false)
       setSelectedWorkOrder(null)
