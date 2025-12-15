@@ -6,25 +6,37 @@
 -- Policy untuk users sudah ada dari migration 013 (is_master_admin function)
 -- Kita hanya perlu memastikan function is_engineering_or_it() ada dan bisa digunakan
 
--- Pastikan function is_engineering_or_it() ada (sudah dibuat di migration 013)
--- Jika belum ada, buat function ini
+-- Pastikan function is_engineering_or_it() ada dan diperbaiki
+-- Function ini sudah dibuat di migration 013, tapi kita perbaiki untuk handle NULL dengan lebih baik
 CREATE OR REPLACE FUNCTION public.is_engineering_or_it()
 RETURNS BOOLEAN AS $$
 DECLARE
   user_role TEXT;
+  user_id UUID;
 BEGIN
+  -- Ambil user ID
+  user_id := auth.uid();
+  
   -- Pastikan user sudah authenticated
-  IF auth.uid() IS NULL THEN
+  IF user_id IS NULL THEN
     RETURN false;
   END IF;
   
-  -- Function ini bypass RLS karena SECURITY DEFINER (dari migration 013)
+  -- Function ini bypass RLS karena SECURITY DEFINER
   SELECT role INTO user_role
   FROM public.users
-  WHERE id = auth.uid();
+  WHERE id = user_id;
+  
+  -- Jika user tidak ditemukan, return false
+  IF user_role IS NULL THEN
+    RETURN false;
+  END IF;
+  
+  -- Trim role untuk handle spasi
+  user_role := TRIM(user_role);
   
   -- Return true jika role adalah Engineering, IT, atau Master Admin
-  RETURN COALESCE(user_role, '') IN ('Engineering', 'IT', 'Master Admin');
+  RETURN user_role IN ('Engineering', 'IT', 'Master Admin');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
