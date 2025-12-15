@@ -173,19 +173,35 @@ export default function AssetsPage() {
       // Upload photo if exists
       let photoUrl = null
       if (formData.photo) {
-        const assetCode = `${dept.initial_code}-${String(sequenceNumber).padStart(4, '0')}`
-        const fileExt = formData.photo.name.split('.').pop()
-        const fileName = `${assetCode}-${Date.now()}.${fileExt}`
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('asset-photos')
-          .upload(fileName, formData.photo)
-
-        if (!uploadError && uploadData) {
-          const { data: urlData } = supabase.storage
+        try {
+          const assetCode = `${dept.initial_code}-${String(sequenceNumber).padStart(4, '0')}`
+          const fileExt = formData.photo.name.split('.').pop()
+          const fileName = `${assetCode}-${Date.now()}.${fileExt}`
+          
+          console.log('Uploading photo:', fileName, 'Size:', formData.photo.size)
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
             .from('asset-photos')
-            .getPublicUrl(fileName)
-          photoUrl = urlData.publicUrl
+            .upload(fileName, formData.photo)
+
+          if (uploadError) {
+            console.error('Upload error:', uploadError)
+            alert(`Error upload foto: ${uploadError.message}`)
+            // Lanjutkan tanpa foto jika upload gagal
+          } else if (uploadData) {
+            const { data: urlData } = supabase.storage
+              .from('asset-photos')
+              .getPublicUrl(fileName)
+            photoUrl = urlData.publicUrl
+            console.log('Photo uploaded successfully:', photoUrl)
+          }
+        } catch (error: any) {
+          console.error('Unexpected error uploading photo:', error)
+          alert(`Error upload foto: ${error.message}`)
+          // Lanjutkan tanpa foto jika upload gagal
         }
+      } else {
+        console.log('No photo to upload')
       }
 
       // Pastikan department_id ter-set dengan benar
@@ -216,11 +232,15 @@ export default function AssetsPage() {
       // Set photo_url hanya jika ada
       if (photoUrl) {
         cleanAssetData.photo_url = photoUrl
+        console.log('photo_url akan dikirim:', photoUrl)
+      } else {
+        console.log('photoUrl is null, tidak akan mengirim photo_url')
       }
 
       // Debug log untuk melihat data yang akan dikirim
       console.log('Data yang akan dikirim ke database:', Object.keys(cleanAssetData))
       console.log('Apakah ada field photo?', 'photo' in cleanAssetData)
+      console.log('Apakah ada field photo_url?', 'photo_url' in cleanAssetData)
 
       if (editingAsset && isMasterAdmin) {
         const { error: updateError } = await supabase
