@@ -126,7 +126,9 @@ export default function AssetsPage() {
       return
     }
 
-    if (!formData.department_id) {
+    // Validasi departemen - pastikan department_id terisi
+    const finalDepartmentId = formData.department_id || (userProfile?.department_id && !isMasterAdmin ? userProfile.department_id : null)
+    if (!finalDepartmentId || finalDepartmentId.trim() === '') {
       alert('Departemen harus dipilih')
       return
     }
@@ -142,7 +144,9 @@ export default function AssetsPage() {
     }
 
     try {
-      const dept = departments.find((d) => d.id === formData.department_id)
+      // Gunakan finalDepartmentId untuk mencari departemen
+      const finalDepartmentId = formData.department_id || (userProfile?.department_id && !isMasterAdmin ? userProfile.department_id : null)
+      const dept = departments.find((d) => d.id === finalDepartmentId)
       if (!dept) {
         alert('Departemen tidak ditemukan')
         return
@@ -180,7 +184,8 @@ export default function AssetsPage() {
         }
       }
 
-      const assetData = await createAsset(formData, sequenceNumber, dept)
+      // Pastikan department_id ter-set dengan benar
+      const assetData = await createAsset({ ...formData, department_id: finalDepartmentId }, sequenceNumber, dept)
       assetData.photo_url = photoUrl
 
       if (editingAsset && isMasterAdmin) {
@@ -240,9 +245,20 @@ export default function AssetsPage() {
     e.preventDefault()
     if (!userProfile) return
 
+    // Validasi departemen untuk bulk form
+    const isMasterAdmin = userProfile?.role?.trim() === 'Master Admin'
+    const finalDepartmentId = formData.department_id || (userProfile?.department_id && !isMasterAdmin ? userProfile.department_id : null)
+    if (!finalDepartmentId || finalDepartmentId.trim() === '') {
+      alert('Departemen harus dipilih')
+      return
+    }
+
     try {
-      const dept = departments.find((d) => d.id === formData.department_id)
-      if (!dept) return
+      const dept = departments.find((d) => d.id === finalDepartmentId)
+      if (!dept) {
+        alert('Departemen tidak ditemukan')
+        return
+      }
 
       const { data: existingAssets } = await supabase
         .from('assets')
@@ -264,6 +280,7 @@ export default function AssetsPage() {
           {
             ...formData,
             asset_name: `${formData.asset_name} ${i + 1}`,
+            department_id: finalDepartmentId,
           },
           sequenceNumber + i,
           dept
@@ -512,7 +529,14 @@ export default function AssetsPage() {
           <p className="text-gray-600 mt-1">Kelola data aset perusahaan</p>
         </div>
         <div className="flex gap-3">
-          <Button onClick={() => setShowForm(!showForm)}>
+          <Button onClick={() => {
+            const isMasterAdmin = userProfile?.role?.trim() === 'Master Admin'
+            setFormData({
+              ...formData,
+              department_id: isMasterAdmin ? '' : (userProfile?.department_id || ''),
+            })
+            setShowForm(!showForm)
+          }}>
             <Plus className="w-4 h-4 mr-2" />
             Tambah Aset
           </Button>
@@ -538,8 +562,11 @@ export default function AssetsPage() {
               />
               <Select
                 label="Departemen"
-                value={formData.department_id || userProfile?.department_id || ''}
-                onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
+                value={formData.department_id || (userProfile?.department_id && !isMasterAdmin ? userProfile.department_id : '')}
+                onChange={(e) => {
+                  const selectedValue = e.target.value
+                  setFormData({ ...formData, department_id: selectedValue })
+                }}
                 options={
                   isMasterAdmin
                     ? departments.map((d) => ({ value: d.id, label: d.name }))
@@ -568,30 +595,53 @@ export default function AssetsPage() {
                 ]}
                 required
               />
-              <Select
-                label="Satuan"
-                value={formData.unit}
-                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                options={[
-                  { value: '1 Pcs', label: '1 Pcs' },
-                  { value: '2 Pcs', label: '2 Pcs' },
-                  { value: '3 Pcs', label: '3 Pcs' },
-                  { value: '5 Pcs', label: '5 Pcs' },
-                  { value: '10 Pcs', label: '10 Pcs' },
-                  { value: '1 Unit', label: '1 Unit' },
-                  { value: '2 Unit', label: '2 Unit' },
-                  { value: '3 Unit', label: '3 Unit' },
-                  { value: '5 Unit', label: '5 Unit' },
-                  { value: '1 Set', label: '1 Set' },
-                  { value: '2 Set', label: '2 Set' },
-                  { value: '3 Set', label: '3 Set' },
-                  { value: '1 Lembar', label: '1 Lembar' },
-                  { value: '2 Lembar', label: '2 Lembar' },
-                  { value: '5 Lembar', label: '5 Lembar' },
-                  { value: '10 Lembar', label: '10 Lembar' },
-                ]}
-                required
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Satuan <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  list="unit-options-bulk"
+                  value={formData.unit}
+                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                  placeholder="Ketik atau pilih: 1 Pcs, 2 Unit, 1 Lembar, dll"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-sm text-gray-900 bg-white"
+                  required
+                />
+                <datalist id="unit-options-bulk">
+                  <option value="1 Pcs" />
+                  <option value="2 Pcs" />
+                  <option value="3 Pcs" />
+                  <option value="5 Pcs" />
+                  <option value="10 Pcs" />
+                  <option value="1 Unit" />
+                  <option value="2 Unit" />
+                  <option value="3 Unit" />
+                  <option value="5 Unit" />
+                  <option value="1 Set" />
+                  <option value="2 Set" />
+                  <option value="3 Set" />
+                  <option value="1 Lembar" />
+                  <option value="2 Lembar" />
+                  <option value="5 Lembar" />
+                  <option value="10 Lembar" />
+                  <option value="1 Buah" />
+                  <option value="2 Buah" />
+                  <option value="1 Paket" />
+                  <option value="1 Roll" />
+                  <option value="1 Meter" />
+                  <option value="1 Liter" />
+                  <option value="Pcs" />
+                  <option value="Unit" />
+                  <option value="Set" />
+                  <option value="Lembar" />
+                  <option value="Buah" />
+                  <option value="Paket" />
+                </datalist>
+                <p className="text-xs text-gray-500 mt-1">
+                  Ketik langsung atau pilih dari daftar: Pcs, Unit, Set, Lembar, Buah, Paket
+                </p>
+              </div>
               <Input
                 label="Tahun Perolehan"
                 type="number"
@@ -706,8 +756,11 @@ export default function AssetsPage() {
               />
               <Select
                 label="Departemen"
-                value={formData.department_id || userProfile?.department_id || ''}
-                onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
+                value={formData.department_id || (userProfile?.department_id && !isMasterAdmin ? userProfile.department_id : '')}
+                onChange={(e) => {
+                  const selectedValue = e.target.value
+                  setFormData({ ...formData, department_id: selectedValue })
+                }}
                 options={
                   isMasterAdmin
                     ? departments.map((d) => ({ value: d.id, label: d.name }))
@@ -737,36 +790,53 @@ export default function AssetsPage() {
                 ]}
                 required
               />
-              <Select
-                label="Satuan"
-                value={formData.unit}
-                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                options={[
-                  { value: '1 Pcs', label: '1 Pcs' },
-                  { value: '2 Pcs', label: '2 Pcs' },
-                  { value: '3 Pcs', label: '3 Pcs' },
-                  { value: '5 Pcs', label: '5 Pcs' },
-                  { value: '10 Pcs', label: '10 Pcs' },
-                  { value: '1 Unit', label: '1 Unit' },
-                  { value: '2 Unit', label: '2 Unit' },
-                  { value: '3 Unit', label: '3 Unit' },
-                  { value: '5 Unit', label: '5 Unit' },
-                  { value: '1 Set', label: '1 Set' },
-                  { value: '2 Set', label: '2 Set' },
-                  { value: '3 Set', label: '3 Set' },
-                  { value: '1 Lembar', label: '1 Lembar' },
-                  { value: '2 Lembar', label: '2 Lembar' },
-                  { value: '5 Lembar', label: '5 Lembar' },
-                  { value: '10 Lembar', label: '10 Lembar' },
-                  { value: '1 Buah', label: '1 Buah' },
-                  { value: '2 Buah', label: '2 Buah' },
-                  { value: '1 Paket', label: '1 Paket' },
-                  { value: '1 Roll', label: '1 Roll' },
-                  { value: '1 Meter', label: '1 Meter' },
-                  { value: '1 Liter', label: '1 Liter' },
-                ]}
-                required
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Satuan <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  list="unit-options"
+                  value={formData.unit}
+                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                  placeholder="Ketik atau pilih: 1 Pcs, 2 Unit, 1 Lembar, dll"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-sm text-gray-900 bg-white"
+                  required
+                />
+                <datalist id="unit-options">
+                  <option value="1 Pcs" />
+                  <option value="2 Pcs" />
+                  <option value="3 Pcs" />
+                  <option value="5 Pcs" />
+                  <option value="10 Pcs" />
+                  <option value="1 Unit" />
+                  <option value="2 Unit" />
+                  <option value="3 Unit" />
+                  <option value="5 Unit" />
+                  <option value="1 Set" />
+                  <option value="2 Set" />
+                  <option value="3 Set" />
+                  <option value="1 Lembar" />
+                  <option value="2 Lembar" />
+                  <option value="5 Lembar" />
+                  <option value="10 Lembar" />
+                  <option value="1 Buah" />
+                  <option value="2 Buah" />
+                  <option value="1 Paket" />
+                  <option value="1 Roll" />
+                  <option value="1 Meter" />
+                  <option value="1 Liter" />
+                  <option value="Pcs" />
+                  <option value="Unit" />
+                  <option value="Set" />
+                  <option value="Lembar" />
+                  <option value="Buah" />
+                  <option value="Paket" />
+                </datalist>
+                <p className="text-xs text-gray-500 mt-1">
+                  Ketik langsung atau pilih dari daftar: Pcs, Unit, Set, Lembar, Buah, Paket
+                </p>
+              </div>
               <Input
                 label="Tahun Perolehan"
                 type="number"
