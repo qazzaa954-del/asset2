@@ -423,7 +423,7 @@ export default function WorkOrdersPage() {
                   Dilaporkan Oleh
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Tanggal
+                  Tanggal Laporan
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Status
@@ -450,8 +450,31 @@ export default function WorkOrdersPage() {
                     <td className="px-4 py-3 text-sm">
                       {asset?.asset_code} - {asset?.asset_name}
                     </td>
-                    <td className="px-4 py-3 text-sm">{reportedBy?.full_name || '-'}</td>
-                    <td className="px-4 py-3 text-sm">{formatDate(wo.reported_date)}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {reportedBy ? (
+                        <div>
+                          <div className="font-medium text-gray-900">{reportedBy.full_name}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {formatDate(wo.reported_date)}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="text-gray-900">{formatDate(wo.reported_date)}</div>
+                      {wo.started_date && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          Mulai: {formatDate(wo.started_date)}
+                        </div>
+                      )}
+                      {wo.completed_date && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          Selesai: {formatDate(wo.completed_date)}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex items-center gap-2">
                         {getStatusIcon(wo.status)}

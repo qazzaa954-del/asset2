@@ -43,8 +43,23 @@ export default function AssetsPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
+      
+      // Check if user is Master Admin
+      const isMasterAdmin = userProfile?.role?.trim() === 'Master Admin'
+      
+      // Build query for assets
+      let assetsQuery = supabase
+        .from('assets')
+        .select('*, departments(*)')
+        .order('asset_code', { ascending: true })
+      
+      // Filter by department if not Master Admin
+      if (!isMasterAdmin && userProfile?.department_id) {
+        assetsQuery = assetsQuery.eq('department_id', userProfile.department_id)
+      }
+      
       const [assetsRes, deptRes] = await Promise.all([
-        supabase.from('assets').select('*, departments(*)').order('asset_code', { ascending: true }),
+        assetsQuery,
         supabase.from('departments').select('*').order('code', { ascending: true }),
       ])
 
@@ -480,12 +495,18 @@ export default function AssetsPage() {
               />
               <Select
                 label="Departemen"
-                value={formData.department_id}
+                value={formData.department_id || userProfile?.department_id || ''}
                 onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
-                options={departments.map((d) => ({ value: d.id, label: d.name }))}
+                options={
+                  isMasterAdmin
+                    ? departments.map((d) => ({ value: d.id, label: d.name }))
+                    : departments
+                        .filter((d) => d.id === userProfile?.department_id)
+                        .map((d) => ({ value: d.id, label: d.name }))
+                }
                 placeholder={departments.length === 0 ? "Memuat departemen..." : "Pilih Departemen"}
                 required
-                disabled={departments.length === 0}
+                disabled={departments.length === 0 || (!isMasterAdmin && !!userProfile?.department_id)}
               />
               <Input
                 label="Lokasi"
@@ -616,12 +637,18 @@ export default function AssetsPage() {
               />
               <Select
                 label="Departemen"
-                value={formData.department_id}
+                value={formData.department_id || userProfile?.department_id || ''}
                 onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
-                options={departments.map((d) => ({ value: d.id, label: d.name }))}
+                options={
+                  isMasterAdmin
+                    ? departments.map((d) => ({ value: d.id, label: d.name }))
+                    : departments
+                        .filter((d) => d.id === userProfile?.department_id)
+                        .map((d) => ({ value: d.id, label: d.name }))
+                }
                 placeholder={departments.length === 0 ? "Memuat departemen..." : "Pilih Departemen"}
                 required
-                disabled={departments.length === 0}
+                disabled={departments.length === 0 || (!isMasterAdmin && !!userProfile?.department_id)}
               />
               <Input
                 label="Lokasi"

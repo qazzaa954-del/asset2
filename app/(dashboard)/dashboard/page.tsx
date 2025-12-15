@@ -268,14 +268,14 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="hover:shadow-lg transition-shadow duration-300 border-l-4 border-l-blue-500">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 font-medium">Total Aset</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-gray-600 font-medium truncate">Total Aset</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2 break-words">
                 {stats.totalAssets}
               </p>
-              <p className="text-xs text-gray-500 mt-1">Semua aset terdaftar</p>
+              <p className="text-xs text-gray-500 mt-1 truncate">Semua aset terdaftar</p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
+            <div className="p-3 bg-blue-100 rounded-lg flex-shrink-0 ml-4">
               <Package className="w-8 h-8 text-blue-600" />
             </div>
           </div>
@@ -283,14 +283,14 @@ export default function DashboardPage() {
 
         <Card className="hover:shadow-lg transition-shadow duration-300 border-l-4 border-l-green-500">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 font-medium">Nilai Total Aset</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-gray-600 font-medium truncate">Nilai Total Aset</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-2 break-words leading-tight">
                 {formatCurrency(stats.totalValue)}
               </p>
-              <p className="text-xs text-gray-500 mt-1">Total nilai buku</p>
+              <p className="text-xs text-gray-500 mt-1 truncate">Total nilai buku</p>
             </div>
-            <div className="p-3 bg-green-100 rounded-lg">
+            <div className="p-3 bg-green-100 rounded-lg flex-shrink-0 ml-4">
               <DollarSign className="w-8 h-8 text-green-600" />
             </div>
           </div>
@@ -298,14 +298,14 @@ export default function DashboardPage() {
 
         <Card className="hover:shadow-lg transition-shadow duration-300 border-l-4 border-l-yellow-500">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 font-medium">Work Order Pending</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-gray-600 font-medium truncate">Work Order Pending</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2 break-words">
                 {stats.pendingWorkOrders}
               </p>
-              <p className="text-xs text-gray-500 mt-1">Menunggu penanganan</p>
+              <p className="text-xs text-gray-500 mt-1 truncate">Menunggu penanganan</p>
             </div>
-            <div className="p-3 bg-yellow-100 rounded-lg">
+            <div className="p-3 bg-yellow-100 rounded-lg flex-shrink-0 ml-4">
               <Wrench className="w-8 h-8 text-yellow-600" />
             </div>
           </div>
@@ -313,14 +313,14 @@ export default function DashboardPage() {
 
         <Card className="hover:shadow-lg transition-shadow duration-300 border-l-4 border-l-red-500">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 font-medium">Aset Dalam Perbaikan</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-gray-600 font-medium truncate">Aset Dalam Perbaikan</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2 break-words">
                 {stats.assetsInRepair}
               </p>
-              <p className="text-xs text-gray-500 mt-1">Memerlukan perhatian</p>
+              <p className="text-xs text-gray-500 mt-1 truncate">Memerlukan perhatian</p>
             </div>
-            <div className="p-3 bg-red-100 rounded-lg">
+            <div className="p-3 bg-red-100 rounded-lg flex-shrink-0 ml-4">
               <AlertTriangle className="w-8 h-8 text-red-600" />
             </div>
           </div>
