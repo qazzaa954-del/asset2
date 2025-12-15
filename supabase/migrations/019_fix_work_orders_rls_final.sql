@@ -3,28 +3,30 @@
 -- Solusi: Pastikan users table bisa diakses untuk cek role, lalu buat policy work_orders yang benar
 
 -- STEP 1: Pastikan users table bisa diakses untuk cek role
--- Cek apakah ada policy SELECT untuk users
--- Jika tidak ada, buat policy yang mengizinkan user melihat role mereka sendiri dan role user lain untuk keperluan RLS
+-- Policy untuk users sudah ada dari migration 013 (is_master_admin function)
+-- Kita hanya perlu memastikan function is_engineering_or_it() ada dan bisa digunakan
 
--- Policy untuk users: User bisa lihat role mereka sendiri
--- (Ini seharusnya sudah ada dari migration sebelumnya, tapi kita pastikan)
-DO $$
+-- Pastikan function is_engineering_or_it() ada (sudah dibuat di migration 013)
+-- Jika belum ada, buat function ini
+CREATE OR REPLACE FUNCTION public.is_engineering_or_it()
+RETURNS BOOLEAN AS $$
+DECLARE
+  user_role TEXT;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies 
-    WHERE tablename = 'users' 
-    AND policyname = 'Users can view own profile'
-  ) THEN
-    CREATE POLICY "Users can view own profile" ON users
-      FOR SELECT USING (auth.uid() = id);
+  -- Pastikan user sudah authenticated
+  IF auth.uid() IS NULL THEN
+    RETURN false;
   END IF;
-END $$;
-
--- Policy untuk users: User bisa lihat role user lain untuk keperluan RLS check
--- (Ini penting untuk policy work_orders bisa cek role)
-CREATE POLICY IF NOT EXISTS "Users can view roles for RLS" ON users
-  FOR SELECT
-  USING (true); -- Semua authenticated user bisa lihat role (hanya untuk RLS check)
+  
+  -- Function ini bypass RLS karena SECURITY DEFINER (dari migration 013)
+  SELECT role INTO user_role
+  FROM public.users
+  WHERE id = auth.uid();
+  
+  -- Return true jika role adalah Engineering, IT, atau Master Admin
+  RETURN COALESCE(user_role, '') IN ('Engineering', 'IT', 'Master Admin');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- STEP 2: Fix work_orders policies dengan pendekatan yang benar
 
@@ -54,48 +56,38 @@ CREATE POLICY "work_orders_insert_all" ON work_orders
   WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Policy UPDATE: Engineering/IT/Master Admin bisa update work orders
--- Menggunakan subquery langsung untuk cek role
+-- Menggunakan function is_engineering_or_it() untuk avoid recursion
 CREATE POLICY "work_orders_update_eng_it" ON work_orders
   FOR UPDATE
-  USING (
-    -- Cek apakah current user adalah Engineering, IT, atau Master Admin
-    EXISTS (
-      SELECT 1 
-      FROM users 
-      WHERE users.id = auth.uid()
-      AND users.role IN ('Engineering', 'IT', 'Master Admin')
-    )
-  )
-  WITH CHECK (
-    -- Setelah update, pastikan masih memenuhi kondisi
-    EXISTS (
-      SELECT 1 
-      FROM users 
-      WHERE users.id = auth.uid()
-      AND users.role IN ('Engineering', 'IT', 'Master Admin')
-    )
-  );
+  USING (public.is_engineering_or_it())
+  WITH CHECK (public.is_engineering_or_it());
 
 -- Policy DELETE: Engineering/IT/Master Admin bisa delete work orders
 CREATE POLICY "work_orders_delete_eng_it" ON work_orders
   FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 
-      FROM users 
-      WHERE users.id = auth.uid()
-      AND users.role IN ('Engineering', 'IT', 'Master Admin')
-    )
-  );
+  USING (public.is_engineering_or_it());
 
 -- STEP 3: Verifikasi
--- Jalankan query ini untuk test (ganti 'your-work-order-id' dengan ID work order yang ada):
--- UPDATE work_orders 
--- SET status = 'In Progress', started_date = CURRENT_DATE 
--- WHERE id = 'your-work-order-id';
 -- 
+-- 1. Cek role user yang login:
+--    SELECT id, email, role, TRIM(role) as role_trimmed 
+--    FROM users 
+--    WHERE id = auth.uid();
+--
+-- 2. Cek work orders yang ada (untuk mendapatkan UUID):
+--    SELECT id, asset_id, status, reported_date 
+--    FROM work_orders 
+--    ORDER BY created_at DESC 
+--    LIMIT 5;
+--
+-- 3. Test update work order (ganti UUID dengan ID dari query di atas):
+--    UPDATE work_orders 
+--    SET status = 'In Progress', started_date = CURRENT_DATE 
+--    WHERE id = 'paste-uuid-di-sini'
+--    RETURNING *;
+--
 -- Jika masih error, cek:
 -- 1. Apakah user yang login memiliki role 'Engineering', 'IT', atau 'Master Admin'?
--- 2. Jalankan: SELECT id, role FROM users WHERE id = auth.uid();
--- 3. Pastikan role tidak ada spasi di awal/akhir
+-- 2. Pastikan role tidak ada spasi di awal/akhir
+-- 3. Pastikan function is_engineering_or_it() bekerja: SELECT public.is_engineering_or_it();
 
