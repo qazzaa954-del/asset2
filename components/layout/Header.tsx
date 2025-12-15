@@ -17,7 +17,7 @@ export function Header() {
 
     const fetchNotifications = async () => {
       try {
-        // Get pending work orders
+        // 1. Get pending work orders
         const { data: pendingWO } = await supabase
           .from('work_orders')
           .select('*, assets(asset_name, asset_code)')
@@ -25,7 +25,30 @@ export function Header() {
           .order('created_at', { ascending: false })
           .limit(10)
 
-        // Get assets that need repair
+        // 2. Get in progress work orders
+        const { data: inProgressWO } = await supabase
+          .from('work_orders')
+          .select('*, assets(asset_name, asset_code)')
+          .eq('status', 'In Progress')
+          .order('started_date', { ascending: false })
+          .limit(5)
+
+        // 3. Get scheduled work orders (maintenance yang akan datang)
+        const today = new Date()
+        const nextMonth = new Date()
+        nextMonth.setMonth(nextMonth.getMonth() + 1)
+        
+        const { data: scheduledWO } = await supabase
+          .from('work_orders')
+          .select('*, assets(asset_name, asset_code)')
+          .eq('is_scheduled', true)
+          .in('status', ['Pending', 'In Progress'])
+          .gte('scheduled_date', today.toISOString().split('T')[0])
+          .lte('scheduled_date', nextMonth.toISOString().split('T')[0])
+          .order('scheduled_date', { ascending: true })
+          .limit(10)
+
+        // 4. Get assets that need repair
         const { data: repairAssets } = await supabase
           .from('assets')
           .select('asset_code, asset_name, condition, status')
@@ -33,14 +56,41 @@ export function Header() {
           .eq('status', 'Aktif')
           .limit(10)
 
-        const woNotifications = (pendingWO || []).map((wo: any) => ({
+        // Build notifications
+        const woPendingNotifications = (pendingWO || []).map((wo: any) => ({
           id: wo.id,
-          type: 'work_order',
+          type: 'work_order_pending',
           title: 'Work Order Pending',
           message: `${wo.assets?.asset_code} - ${wo.assets?.asset_name}`,
           date: wo.created_at,
           link: '/work-orders',
+          priority: 'high',
         }))
+
+        const woInProgressNotifications = (inProgressWO || []).map((wo: any) => ({
+          id: wo.id + '-inprogress',
+          type: 'work_order_in_progress',
+          title: 'Work Order Sedang Dikerjakan',
+          message: `${wo.assets?.asset_code} - ${wo.assets?.asset_name}`,
+          date: wo.started_date || wo.created_at,
+          link: '/work-orders',
+          priority: 'medium',
+        }))
+
+        const scheduledNotifications = (scheduledWO || []).map((wo: any) => {
+          const scheduledDate = new Date(wo.scheduled_date)
+          const daysUntil = Math.ceil((scheduledDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+          
+          return {
+            id: wo.id + '-scheduled',
+            type: 'scheduled_maintenance',
+            title: daysUntil <= 7 ? '⚠️ Maintenance Mendekati' : '📅 Maintenance Terjadwal',
+            message: `${wo.assets?.asset_code} - ${wo.assets?.asset_name} (${daysUntil} hari lagi)`,
+            date: wo.scheduled_date,
+            link: '/work-orders',
+            priority: daysUntil <= 7 ? 'high' : 'low',
+          }
+        })
 
         const assetNotifications = (repairAssets || []).map((asset: any) => ({
           id: asset.asset_code,
@@ -49,9 +99,25 @@ export function Header() {
           message: `${asset.asset_code} - ${asset.asset_name} (${asset.condition})`,
           date: new Date().toISOString(),
           link: '/assets',
+          priority: asset.condition === 'Rusak Berat' ? 'high' : 'medium',
         }))
 
-        const allNotifications = [...woNotifications, ...assetNotifications]
+        // Combine all notifications and sort by priority and date
+        const allNotifications = [
+          ...woPendingNotifications,
+          ...woInProgressNotifications,
+          ...scheduledNotifications,
+          ...assetNotifications,
+        ].sort((a, b) => {
+          // Sort by priority first (high > medium > low)
+          const priorityOrder = { high: 3, medium: 2, low: 1 }
+          const priorityDiff = (priorityOrder[b.priority as keyof typeof priorityOrder] || 0) - 
+                              (priorityOrder[a.priority as keyof typeof priorityOrder] || 0)
+          if (priorityDiff !== 0) return priorityDiff
+          // Then by date (newest first)
+          return new Date(b.date).getTime() - new Date(a.date).getTime()
+        })
+
         setNotifications(allNotifications)
         setNotificationCount(allNotifications.length)
       } catch (error) {
@@ -108,20 +174,41 @@ export function Header() {
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-200">
-                    {notifications.map((notif) => (
-                      <a
-                        key={notif.id}
-                        href={notif.link}
-                        className="block p-4 hover:bg-gray-50 transition-colors"
-                        onClick={() => setShowNotifications(false)}
-                      >
-                        <div className="font-medium text-sm text-gray-900">{notif.title}</div>
-                        <div className="text-xs text-gray-600 mt-1">{notif.message}</div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          {new Date(notif.date).toLocaleString('id-ID')}
-                        </div>
-                      </a>
-                    ))}
+                    {notifications.map((notif) => {
+                      const isHighPriority = notif.priority === 'high'
+                      const isScheduled = notif.type === 'scheduled_maintenance'
+                      
+                      return (
+                        <a
+                          key={notif.id}
+                          href={notif.link}
+                          className={`block p-4 hover:bg-gray-50 transition-colors ${
+                            isHighPriority ? 'bg-red-50 border-l-4 border-l-red-500' : ''
+                          }`}
+                          onClick={() => setShowNotifications(false)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className={`font-medium text-sm ${isHighPriority ? 'text-red-900' : 'text-gray-900'}`}>
+                                {notif.title}
+                              </div>
+                              <div className={`text-xs mt-1 ${isHighPriority ? 'text-red-700' : 'text-gray-600'}`}>
+                                {notif.message}
+                              </div>
+                              <div className="text-xs text-gray-400 mt-1">
+                                {isScheduled 
+                                  ? `Terjadwal: ${new Date(notif.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                                  : new Date(notif.date).toLocaleString('id-ID')
+                                }
+                              </div>
+                            </div>
+                            {isHighPriority && (
+                              <span className="ml-2 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                            )}
+                          </div>
+                        </a>
+                      )
+                    })}
                   </div>
                 )}
               </div>
