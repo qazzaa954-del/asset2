@@ -248,6 +248,10 @@ export default function WorkOrdersPage() {
 
       if (updateError) {
         console.error('Update error:', updateError)
+        // Berikan error message yang lebih jelas
+        if (updateError.message.includes('row-level security')) {
+          alert('Error: Akses ditolak. Pastikan:\n1. Role user adalah IT, Engineering, atau Master Admin\n2. Migration 023 sudah dijalankan di Supabase\n3. User sudah logout dan login lagi')
+        }
         throw updateError
       }
       
