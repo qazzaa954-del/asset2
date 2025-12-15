@@ -15,20 +15,32 @@ export default function WorkOrdersPage() {
   const [workOrders, setWorkOrders] = useState<any[]>([])
   const [assets, setAssets] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [showStartModal, setShowStartModal] = useState(false)
+  const [showCompleteModal, setShowCompleteModal] = useState(false)
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<any>(null)
   const [formData, setFormData] = useState({
     asset_id: '',
     description: '',
     photo_before: null as File | null,
     assigned_to: '', // Engineering or IT user ID
   })
+  const [startFormData, setStartFormData] = useState({
+    started_date: new Date().toISOString().split('T')[0],
+    photo_before: null as File | null,
+  })
+  const [completeFormData, setCompleteFormData] = useState({
+    completed_date: new Date().toISOString().split('T')[0],
+    photo_after: null as File | null,
+  })
   const [engineeringUsers, setEngineeringUsers] = useState<any[]>([])
   const [itUsers, setItUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  const isEngineeringOrIT =
-    userProfile?.role?.trim() === 'Engineering' ||
-    userProfile?.role?.trim() === 'IT' ||
-    userProfile?.role?.trim() === 'Master Admin'
+  // Check if user is IT or Engineering
+  const isIT = userProfile?.role?.trim() === 'IT'
+  const isEngineering = userProfile?.role?.trim() === 'Engineering'
+  const isMasterAdmin = userProfile?.role?.trim() === 'Master Admin'
+  const isITOrEngineering = isIT || isEngineering || isMasterAdmin
   
   // All users can view work orders, but only Engineering/IT/Master Admin can manage
   const canViewWorkOrders = true // All authenticated users
@@ -195,43 +207,102 @@ export default function WorkOrdersPage() {
     }
   }
 
-  const handleUpdateStatus = async (woId: string, status: string, photoAfter?: File) => {
-    if (!isEngineeringOrIT) return
+  const handleStartWorkOrder = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedWorkOrder || !isITOrEngineering) return
 
     try {
-      let photoAfterUrl = null
-      if (photoAfter) {
-        const fileExt = photoAfter.name.split('.').pop()
-        const fileName = `wo-after-${woId}-${Date.now()}.${fileExt}`
-        const { data: uploadData } = await supabase.storage
-          .from('work-order-photos')
-          .upload(fileName, photoAfter)
-
-        if (uploadData) {
-          const { data: urlData } = supabase.storage
-            .from('work-order-photos')
-            .getPublicUrl(fileName)
-          photoAfterUrl = urlData.publicUrl
-        }
+      if (!startFormData.photo_before) {
+        alert('Foto sebelum pekerjaan wajib diisi!')
+        return
       }
 
+      // Upload photo before
+      const fileExt = startFormData.photo_before.name.split('.').pop()
+      const fileName = `wo-before-${selectedWorkOrder.id}-${Date.now()}.${fileExt}`
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('work-order-photos')
+        .upload(fileName, startFormData.photo_before)
+
+      if (uploadError) {
+        throw uploadError
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('work-order-photos')
+        .getPublicUrl(fileName)
+      const photoBeforeUrl = urlData.publicUrl
+
+      // Update work order
       const updateData: any = {
-        status,
+        status: 'In Progress',
         assigned_to: userProfile?.id,
+        started_date: startFormData.started_date,
+        photo_before: photoBeforeUrl,
       }
 
-      if (photoAfterUrl) {
-        updateData.photo_after = photoAfterUrl
-      }
-
-      if (status === 'Completed') {
-        updateData.completed_date = new Date().toISOString().split('T')[0]
-      }
-
-      await supabase.from('work_orders').update(updateData).eq('id', woId)
+      await supabase.from('work_orders').update(updateData).eq('id', selectedWorkOrder.id)
+      
+      setShowStartModal(false)
+      setSelectedWorkOrder(null)
+      setStartFormData({
+        started_date: new Date().toISOString().split('T')[0],
+        photo_before: null,
+      })
       fetchData()
-    } catch (error) {
-      console.error('Error updating work order:', error)
+      alert('Work order berhasil dimulai!')
+    } catch (error: any) {
+      console.error('Error starting work order:', error)
+      alert(error.message || 'Terjadi kesalahan saat memulai work order')
+    }
+  }
+
+  const handleCompleteWorkOrder = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedWorkOrder || !isITOrEngineering) return
+
+    try {
+      if (!completeFormData.photo_after) {
+        alert('Foto setelah pekerjaan wajib diisi!')
+        return
+      }
+
+      // Upload photo after
+      const fileExt = completeFormData.photo_after.name.split('.').pop()
+      const fileName = `wo-after-${selectedWorkOrder.id}-${Date.now()}.${fileExt}`
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('work-order-photos')
+        .upload(fileName, completeFormData.photo_after)
+
+      if (uploadError) {
+        throw uploadError
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('work-order-photos')
+        .getPublicUrl(fileName)
+      const photoAfterUrl = urlData.publicUrl
+
+      // Update work order
+      const updateData: any = {
+        status: 'Completed',
+        completed_date: completeFormData.completed_date,
+        photo_after: photoAfterUrl,
+      }
+
+      await supabase.from('work_orders').update(updateData).eq('id', selectedWorkOrder.id)
+      
+      setShowCompleteModal(false)
+      setSelectedWorkOrder(null)
+      setCompleteFormData({
+        completed_date: new Date().toISOString().split('T')[0],
+        photo_after: null,
+      })
+      fetchData()
+      alert('Work order berhasil diselesaikan!')
+    } catch (error: any) {
+      console.error('Error completing work order:', error)
+      alert(error.message || 'Terjadi kesalahan saat menyelesaikan work order')
     }
   }
 
@@ -254,14 +325,14 @@ export default function WorkOrdersPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Work Order</h1>
           <p className="text-gray-600 mt-1">
-            {isEngineeringOrIT
+            {isITOrEngineering
               ? 'Kelola work order dan maintenance'
               : 'Laporkan kerusakan aset'}
           </p>
         </div>
         <Button onClick={() => setShowForm(true)}>
           <Plus className="w-4 h-4 mr-2" />
-          {isEngineeringOrIT ? 'Buat Work Order' : 'Laporkan Kerusakan'}
+          {isITOrEngineering ? 'Buat Work Order' : 'Laporkan Kerusakan'}
         </Button>
       </div>
 
@@ -307,7 +378,7 @@ export default function WorkOrdersPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
             </div>
-            {isEngineeringOrIT && (
+            {isITOrEngineering && (
               <Select
                 label="Assign ke Departemen"
                 value={formData.assigned_to}
@@ -388,44 +459,42 @@ export default function WorkOrdersPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {isEngineeringOrIT && wo.status === 'Pending' && (
+                      {isITOrEngineering && wo.status === 'Pending' && (
                         <div className="flex gap-2">
                           <Button
                             size="sm"
-                            onClick={() => handleUpdateStatus(wo.id, 'In Progress')}
+                            onClick={() => {
+                              setSelectedWorkOrder(wo)
+                              setShowStartModal(true)
+                            }}
                           >
                             Mulai
                           </Button>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0]
-                              if (file) {
-                                handleUpdateStatus(wo.id, 'Completed', file)
-                              }
-                            }}
-                            className="hidden"
-                            id={`photo-after-${wo.id}`}
-                          />
+                        </div>
+                      )}
+                      {isITOrEngineering && wo.status === 'In Progress' && (
+                        <div className="flex gap-2">
                           <Button
                             size="sm"
                             variant="secondary"
-                            onClick={() =>
-                              document.getElementById(`photo-after-${wo.id}`)?.click()
-                            }
+                            onClick={() => {
+                              setSelectedWorkOrder(wo)
+                              setShowCompleteModal(true)
+                            }}
                           >
                             <Camera className="w-4 h-4 mr-1" />
                             Selesai
                           </Button>
                         </div>
                       )}
-                      {!isEngineeringOrIT && wo.status === 'Pending' && (
+                      {!isITOrEngineering && wo.status === 'Pending' && (
                         <span className="text-xs text-gray-500">Menunggu penanganan</span>
                       )}
-                      {wo.status !== 'Pending' && (
-                        <span className="text-xs text-gray-500">{wo.status}</span>
+                      {!isITOrEngineering && wo.status === 'In Progress' && (
+                        <span className="text-xs text-blue-600">Sedang dikerjakan</span>
+                      )}
+                      {wo.status === 'Completed' && (
+                        <span className="text-xs text-green-600">Selesai</span>
                       )}
                     </td>
                   </tr>
@@ -435,6 +504,132 @@ export default function WorkOrdersPage() {
           </table>
         </div>
       </Card>
+
+      {/* Modal Mulai Work Order */}
+      {showStartModal && selectedWorkOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md m-4">
+            <h2 className="text-xl font-bold mb-4 text-gray-900">
+              Mulai Work Order
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Aset: {(selectedWorkOrder.assets as any)?.asset_code} - {(selectedWorkOrder.assets as any)?.asset_name}
+            </p>
+            <form onSubmit={handleStartWorkOrder} className="space-y-4">
+              <Input
+                label="Tanggal Mulai"
+                type="date"
+                value={startFormData.started_date}
+                onChange={(e) =>
+                  setStartFormData({ ...startFormData, started_date: e.target.value })
+                }
+                required
+              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Foto Sebelum Pekerjaan <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) =>
+                    setStartFormData({
+                      ...startFormData,
+                      photo_before: e.target.files?.[0] || null,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Foto kondisi aset sebelum pekerjaan dimulai (wajib)
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button type="submit">Mulai Pekerjaan</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowStartModal(false)
+                    setSelectedWorkOrder(null)
+                    setStartFormData({
+                      started_date: new Date().toISOString().split('T')[0],
+                      photo_before: null,
+                    })
+                  }}
+                >
+                  Batal
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal Selesai Work Order */}
+      {showCompleteModal && selectedWorkOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md m-4">
+            <h2 className="text-xl font-bold mb-4 text-gray-900">
+              Selesai Work Order
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Aset: {(selectedWorkOrder.assets as any)?.asset_code} - {(selectedWorkOrder.assets as any)?.asset_name}
+            </p>
+            <form onSubmit={handleCompleteWorkOrder} className="space-y-4">
+              <Input
+                label="Tanggal Selesai"
+                type="date"
+                value={completeFormData.completed_date}
+                onChange={(e) =>
+                  setCompleteFormData({ ...completeFormData, completed_date: e.target.value })
+                }
+                required
+              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Foto Setelah Pekerjaan <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) =>
+                    setCompleteFormData({
+                      ...completeFormData,
+                      photo_after: e.target.files?.[0] || null,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Foto kondisi aset setelah pekerjaan selesai (wajib)
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button type="submit">Selesai</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowCompleteModal(false)
+                    setSelectedWorkOrder(null)
+                    setCompleteFormData({
+                      completed_date: new Date().toISOString().split('T')[0],
+                      photo_after: null,
+                    })
+                  }}
+                >
+                  Batal
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
