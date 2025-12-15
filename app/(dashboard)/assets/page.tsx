@@ -191,23 +191,36 @@ export default function AssetsPage() {
       // Pastikan department_id ter-set dengan benar
       const assetData = await createAsset({ ...formData, department_id: finalDepartmentId }, sequenceNumber, dept)
       
-      // Pastikan hanya field yang valid yang dikirim ke database
-      // Hapus semua field yang tidak ada di schema database
-      const { photo, ...cleanAssetData } = assetData
+      // EKSPLISIT: Hanya kirim field yang benar-benar ada di schema database
+      // Field yang valid di tabel assets:
+      // asset_name, asset_code, location, department_id, unit, acquisition_year,
+      // acquisition_price, estimated_lifespan, condition, status, category,
+      // photo_url, barcode, book_value, created_by, created_at, updated_at
+      const cleanAssetData: any = {
+        asset_name: assetData.asset_name,
+        asset_code: assetData.asset_code,
+        location: assetData.location,
+        department_id: assetData.department_id,
+        unit: assetData.unit,
+        acquisition_year: assetData.acquisition_year,
+        acquisition_price: assetData.acquisition_price,
+        estimated_lifespan: assetData.estimated_lifespan,
+        condition: assetData.condition,
+        status: assetData.status,
+        category: assetData.category,
+        barcode: assetData.barcode,
+        book_value: assetData.book_value,
+        created_by: assetData.created_by,
+      }
       
       // Set photo_url hanya jika ada
       if (photoUrl) {
         cleanAssetData.photo_url = photoUrl
-      } else {
-        // Hapus photo_url jika null untuk menghindari error
-        delete cleanAssetData.photo_url
       }
 
-      // Debug: Pastikan tidak ada field 'photo' yang terkirim
-      if ('photo' in cleanAssetData) {
-        console.error('ERROR: Field "photo" masih ada di cleanAssetData!', cleanAssetData)
-        delete cleanAssetData.photo
-      }
+      // Debug log untuk melihat data yang akan dikirim
+      console.log('Data yang akan dikirim ke database:', Object.keys(cleanAssetData))
+      console.log('Apakah ada field photo?', 'photo' in cleanAssetData)
 
       if (editingAsset && isMasterAdmin) {
         const { error: updateError } = await supabase
@@ -216,6 +229,7 @@ export default function AssetsPage() {
           .eq('id', editingAsset.id)
         
         if (updateError) {
+          console.error('Update error:', updateError)
           throw updateError
         }
         alert('Aset berhasil diupdate!')
@@ -226,6 +240,8 @@ export default function AssetsPage() {
           .insert(cleanAssetData)
         
         if (insertError) {
+          console.error('Insert error:', insertError)
+          console.error('Data yang dikirim:', cleanAssetData)
           throw insertError
         }
         alert('Aset berhasil ditambahkan!')
