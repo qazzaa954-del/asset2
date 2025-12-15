@@ -22,7 +22,7 @@ export function Select({ label, error, options, className, placeholder, ...props
       )}
       <select
         className={cn(
-          'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-sm cursor-pointer appearance-none bg-white',
+          'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-sm cursor-pointer appearance-none bg-white text-gray-900',
           error && 'border-red-500 focus:ring-red-500',
           !hasValue && placeholder && 'text-gray-500',
           className
