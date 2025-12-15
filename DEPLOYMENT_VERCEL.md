@@ -244,3 +244,4 @@ Jika traffic tinggi atau butuh fitur lebih:
   - Priority support
 
 **Untuk aplikasi internal kecil-menengah, Free Tier sudah sangat cukup!**
+

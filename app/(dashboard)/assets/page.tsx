@@ -20,6 +20,7 @@ export default function AssetsPage() {
   const [showForm, setShowForm] = useState(false)
   const [showBulkForm, setShowBulkForm] = useState(false)
   const [bulkCount, setBulkCount] = useState(5)
+  const [generatingSample, setGeneratingSample] = useState(false)
   const [editingAsset, setEditingAsset] = useState<any>(null)
   const [formData, setFormData] = useState({
     asset_name: '',

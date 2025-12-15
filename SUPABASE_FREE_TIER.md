@@ -232,3 +232,4 @@ const { data } = await supabase
 4. **Upgrade** jika traffic tinggi
 
 **Untuk sistem asset management internal, Free Tier adalah pilihan yang sangat baik!**
+

@@ -10,6 +10,12 @@ const nextConfig = {
       },
     ],
   },
+  // Optimasi untuk Vercel
+  output: 'standalone',
+  // Enable compression
+  compress: true,
+  // Optimize production builds
+  swcMinify: true,
 }
 
 module.exports = nextConfig
