@@ -76,3 +76,4 @@ CREATE POLICY "work_orders_delete_eng_it" ON work_orders
   FOR DELETE
   USING (public.is_engineering_or_it());
 
+

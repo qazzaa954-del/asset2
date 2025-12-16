@@ -70,3 +70,4 @@ SELECT
 FROM users
 WHERE id = auth.uid();
 
+

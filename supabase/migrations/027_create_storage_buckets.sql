@@ -31,3 +31,4 @@ ON CONFLICT (id) DO NOTHING;
 -- STEP 4: Pastikan storage policies sudah ada (dari migration 026)
 -- Jika belum, jalankan migration 026_fix_storage_policies.sql
 
+

@@ -105,3 +105,4 @@ Function `is_engineering_or_it()` hanya bisa di-test dari aplikasi, bukan SQL Ed
 - [ ] User sudah logout dan login lagi
 - [ ] Test dari aplikasi, bukan SQL Editor
 
+

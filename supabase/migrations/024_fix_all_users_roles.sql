@@ -67,3 +67,4 @@ ORDER BY role, email;
 -- Setelah migration ini, semua user IT dan Engineering seharusnya bisa update work orders
 -- Test dengan: SELECT public.is_engineering_or_it(); (harus return true untuk user IT/Engineering)
 
+

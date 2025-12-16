@@ -13,6 +13,7 @@ import {
   BarChart3,
   LogOut,
   TrendingDown,
+  FolderKanban,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Logo } from '@/components/Logo'
@@ -21,6 +22,7 @@ import { cn } from '@/lib/utils'
 const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['Master Admin', 'Engineering', 'IT', 'User'] },
   { href: '/assets', label: 'Master Inventory', icon: Package, roles: ['Master Admin', 'Engineering', 'IT', 'User'] },
+  { href: '/asset-projects', label: 'Asset Projects', icon: FolderKanban, roles: ['Master Admin'] },
   { href: '/departments', label: 'Master Departemen', icon: Building2, roles: ['Master Admin'] },
   { href: '/financial', label: 'Finansial & Audit', icon: FileText, roles: ['Master Admin'] },
   { href: '/depreciation', label: 'Depresiasi', icon: TrendingDown, roles: ['Master Admin'] },

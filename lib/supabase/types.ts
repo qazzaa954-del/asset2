@@ -160,6 +160,7 @@ export type Database = {
           photo_before: string | null
           photo_after: string | null
           status: 'Pending' | 'In Progress' | 'Completed' | 'Cancelled'
+          priority: 'Low' | 'Medium' | 'High' | 'Urgent'
           assigned_to: string | null
           started_date: string | null
           completed_date: string | null
@@ -178,6 +179,7 @@ export type Database = {
           photo_before?: string | null
           photo_after?: string | null
           status?: 'Pending' | 'In Progress' | 'Completed' | 'Cancelled'
+          priority?: 'Low' | 'Medium' | 'High' | 'Urgent'
           assigned_to?: string | null
           started_date?: string | null
           completed_date?: string | null
@@ -196,6 +198,7 @@ export type Database = {
           photo_before?: string | null
           photo_after?: string | null
           status?: 'Pending' | 'In Progress' | 'Completed' | 'Cancelled'
+          priority?: 'Low' | 'Medium' | 'High' | 'Urgent'
           assigned_to?: string | null
           started_date?: string | null
           completed_date?: string | null
@@ -204,6 +207,82 @@ export type Database = {
           scheduled_date?: string | null
           created_at?: string
           updated_at?: string
+        }
+      }
+      asset_projects: {
+        Row: {
+          id: string
+          project_name: string
+          project_code: string
+          description: string | null
+          start_date: string
+          end_date: string | null
+          budget: number
+          actual_cost: number
+          status: 'Planning' | 'In Progress' | 'On Hold' | 'Completed' | 'Cancelled'
+          department_id: string | null
+          project_manager: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_name: string
+          project_code: string
+          description?: string | null
+          start_date: string
+          end_date?: string | null
+          budget?: number
+          actual_cost?: number
+          status?: 'Planning' | 'In Progress' | 'On Hold' | 'Completed' | 'Cancelled'
+          department_id?: string | null
+          project_manager?: string | null
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          project_name?: string
+          project_code?: string
+          description?: string | null
+          start_date?: string
+          end_date?: string | null
+          budget?: number
+          actual_cost?: number
+          status?: 'Planning' | 'In Progress' | 'On Hold' | 'Completed' | 'Cancelled'
+          department_id?: string | null
+          project_manager?: string | null
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      asset_project_assignments: {
+        Row: {
+          id: string
+          project_id: string
+          asset_id: string
+          assigned_date: string
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          asset_id: string
+          assigned_date?: string
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          asset_id?: string
+          assigned_date?: string
+          notes?: string | null
+          created_at?: string
         }
       }
       depreciation_methods: {

@@ -23,6 +23,7 @@ export default function WorkOrdersPage() {
     description: '',
     photo_before: null as File | null,
     assigned_to: '', // Engineering or IT user ID
+    priority: 'Medium' as 'Low' | 'Medium' | 'High' | 'Urgent',
   })
   const [startFormData, setStartFormData] = useState({
     started_date: new Date().toISOString().split('T')[0],
@@ -196,11 +197,12 @@ export default function WorkOrdersPage() {
         description: formData.description,
         photo_before: photoBeforeUrl,
         status: 'Pending',
+        priority: formData.priority,
         assigned_to: formData.assigned_to || null,
       })
 
       setShowForm(false)
-      setFormData({ asset_id: '', description: '', photo_before: null, assigned_to: '' })
+      setFormData({ asset_id: '', description: '', photo_before: null, assigned_to: '', priority: 'Medium' })
       fetchData()
     } catch (error) {
       console.error('Error creating work order:', error)
@@ -331,6 +333,21 @@ export default function WorkOrdersPage() {
     }
   }
 
+  const getPriorityBadge = (priority: string) => {
+    const colors = {
+      Low: 'bg-gray-100 text-gray-800',
+      Medium: 'bg-blue-100 text-blue-800',
+      High: 'bg-orange-100 text-orange-800',
+      Urgent: 'bg-red-100 text-red-800',
+    }
+    const color = colors[priority as keyof typeof colors] || colors.Medium
+    return (
+      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${color}`}>
+        {priority}
+      </span>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -373,6 +390,18 @@ export default function WorkOrdersPage() {
                 required
               />
             </div>
+            <Select
+              label="Priority"
+              value={formData.priority}
+              onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
+              options={[
+                { value: 'Low', label: 'Low - Rendah' },
+                { value: 'Medium', label: 'Medium - Sedang' },
+                { value: 'High', label: 'High - Tinggi' },
+                { value: 'Urgent', label: 'Urgent - Mendesak' },
+              ]}
+              required
+            />
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Foto Sebelum (Before)
@@ -410,7 +439,7 @@ export default function WorkOrdersPage() {
                 variant="outline"
                 onClick={() => {
                   setShowForm(false)
-                  setFormData({ asset_id: '', description: '', photo_before: null, assigned_to: '' })
+                  setFormData({ asset_id: '', description: '', photo_before: null, assigned_to: '', priority: 'Medium' })
                 }}
               >
                 Batal
@@ -438,6 +467,9 @@ export default function WorkOrdersPage() {
                   Tanggal Laporan
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Priority
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Status
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -448,7 +480,7 @@ export default function WorkOrdersPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {workOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                     Belum ada work order
                   </td>
                 </tr>
@@ -486,6 +518,9 @@ export default function WorkOrdersPage() {
                           Selesai: {formatDate(wo.completed_date)}
                         </div>
                       )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {getPriorityBadge(wo.priority || 'Medium')}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex items-center gap-2">
