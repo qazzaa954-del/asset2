@@ -891,6 +891,8 @@ export default function AssetsPage() {
                     status: 'Aktif',
                     category: 'Office',
                     photo: null,
+                    photo_before: null,
+                    photo_after: null,
                   })
                 }}
               >
@@ -1135,6 +1137,8 @@ export default function AssetsPage() {
                     status: 'Aktif',
                     category: 'Office',
                     photo: null,
+                    photo_before: null,
+                    photo_after: null,
                   })
                 }}
               >

@@ -498,15 +498,17 @@ export default function UsersPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {departments.map((dept) => (
-                <Card key={dept.id} className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleOpenPermissions(dept)}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{dept.name}</h3>
-                      <p className="text-sm text-gray-600 mt-1">Kode: {dept.code}</p>
+                <div key={dept.id} onClick={() => handleOpenPermissions(dept)} className="cursor-pointer">
+                  <Card className="hover:shadow-lg transition-shadow">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-gray-900">{dept.name}</h3>
+                        <p className="text-sm text-gray-600 mt-1">Kode: {dept.code}</p>
+                      </div>
+                      <Settings className="w-5 h-5 text-gray-400" />
                     </div>
-                    <Settings className="w-5 h-5 text-gray-400" />
-                  </div>
-                </Card>
+                  </Card>
+                </div>
               ))}
             </div>
           </div>
