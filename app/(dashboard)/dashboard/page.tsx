@@ -17,6 +17,11 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  LineChart,
+  Line,
+  ComposedChart,
+  Area,
+  AreaChart,
 } from 'recharts'
 import { Package, AlertTriangle, Wrench, DollarSign, Plus, Calendar, Clock } from 'lucide-react'
 import Link from 'next/link'
@@ -37,6 +42,9 @@ export default function DashboardPage() {
   const [scheduledWorkOrders, setScheduledWorkOrders] = useState<any[]>([])
   const [conditionData, setConditionData] = useState<Array<{ name: string; value: number }>>([])
   const [departmentData, setDepartmentData] = useState<Array<{ name: string; value: number }>>([])
+  const [statusData, setStatusData] = useState<Array<{ name: string; value: number }>>([])
+  const [categoryData, setCategoryData] = useState<Array<{ name: string; value: number }>>([])
+  const [yearlyAcquisitionData, setYearlyAcquisitionData] = useState<Array<{ year: number; count: number; value: number }>>([])
   const [loading, setLoading] = useState(true)
   const [creatingSample, setCreatingSample] = useState(false)
 
@@ -80,8 +88,49 @@ export default function DashboardPage() {
           value: Number(value),
         }))
 
+        // Status distribution
+        const statusCounts = assets.reduce((acc: any, asset) => {
+          acc[asset.status] = (acc[asset.status] || 0) + 1
+          return acc
+        }, {})
+        const statusChartData = Object.entries(statusCounts).map(([name, value]) => ({
+          name,
+          value: Number(value),
+        }))
+
+        // Category distribution
+        const categoryCounts = assets.reduce((acc: any, asset) => {
+          acc[asset.category] = (acc[asset.category] || 0) + 1
+          return acc
+        }, {})
+        const categoryChartData = Object.entries(categoryCounts).map(([name, value]) => ({
+          name,
+          value: Number(value),
+        }))
+
+        // Yearly acquisition data
+        const yearlyData = assets.reduce((acc: any, asset) => {
+          const year = asset.acquisition_year
+          if (!acc[year]) {
+            acc[year] = { count: 0, value: 0 }
+          }
+          acc[year].count += 1
+          acc[year].value += Number(asset.acquisition_price)
+          return acc
+        }, {})
+        const yearlyChartData = Object.entries(yearlyData)
+          .map(([year, data]: [string, any]) => ({
+            year: Number(year),
+            count: data.count,
+            value: data.value,
+          }))
+          .sort((a, b) => a.year - b.year)
+
         setConditionData(conditionChartData)
         setDepartmentData(deptChartData)
+        setStatusData(statusChartData)
+        setCategoryData(categoryChartData)
+        setYearlyAcquisitionData(yearlyChartData)
 
         // Fetch work orders
         const { data: workOrders } = await supabase
@@ -327,12 +376,13 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Charts - Professional Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Condition Distribution Pie Chart */}
         <Card className="hover:shadow-lg transition-shadow duration-300">
           <div className="mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Distribusi Kondisi Aset</h3>
-            <p className="text-sm text-gray-500">Persentase kondisi aset</p>
+            <p className="text-sm text-gray-500">Persentase kondisi aset secara keseluruhan</p>
           </div>
           {conditionData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
@@ -343,7 +393,7 @@ export default function DashboardPage() {
                   cy="50%"
                   labelLine={false}
                   label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
+                  outerRadius={90}
                   fill="#8884d8"
                   dataKey="value"
                 >
@@ -351,7 +401,14 @@ export default function DashboardPage() {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '8px'
+                  }} 
+                />
               </PieChart>
             </ResponsiveContainer>
           ) : (
@@ -361,6 +418,50 @@ export default function DashboardPage() {
           )}
         </Card>
 
+        {/* Status Distribution Pie Chart */}
+        <Card className="hover:shadow-lg transition-shadow duration-300">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Distribusi Status Aset</h3>
+            <p className="text-sm text-gray-500">Status aset: Aktif, Repair, atau Disposal</p>
+          </div>
+          {statusData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={statusData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={90}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {statusData.map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={['#3b82f6', '#f59e0b', '#6b7280'][index % 3]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '8px'
+                  }} 
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-gray-400">
+              <p>Belum ada data</p>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Department & Category Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Department Bar Chart */}
         <Card className="hover:shadow-lg transition-shadow duration-300">
           <div className="mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Total Aset per Departemen</h3>
@@ -375,14 +476,15 @@ export default function DashboardPage() {
                   angle={-45} 
                   textAnchor="end" 
                   height={100}
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: 11 }}
                 />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: '#fff', 
                     border: '1px solid #e5e7eb',
-                    borderRadius: '8px'
+                    borderRadius: '8px',
+                    padding: '8px'
                   }} 
                 />
                 <Legend />
@@ -395,7 +497,98 @@ export default function DashboardPage() {
             </div>
           )}
         </Card>
+
+        {/* Category Bar Chart */}
+        <Card className="hover:shadow-lg transition-shadow duration-300">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Total Aset per Kategori</h3>
+            <p className="text-sm text-gray-500">Distribusi aset berdasarkan kategori</p>
+          </div>
+          {categoryData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={categoryData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="name" 
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '8px'
+                  }} 
+                />
+                <Legend />
+                <Bar dataKey="value" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-gray-400">
+              <p>Belum ada data</p>
+            </div>
+          )}
+        </Card>
       </div>
+
+      {/* Yearly Acquisition Chart */}
+      {yearlyAcquisitionData.length > 0 && (
+        <Card className="hover:shadow-lg transition-shadow duration-300 mb-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Tren Perolehan Aset per Tahun</h3>
+            <p className="text-sm text-gray-500">Jumlah dan nilai aset yang diperoleh setiap tahun</p>
+          </div>
+          <ResponsiveContainer width="100%" height={350}>
+            <ComposedChart data={yearlyAcquisitionData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis 
+                dataKey="year" 
+                tick={{ fontSize: 12 }}
+                label={{ value: 'Tahun', position: 'insideBottom', offset: -5 }}
+              />
+              <YAxis 
+                yAxisId="left"
+                tick={{ fontSize: 12 }}
+                label={{ value: 'Jumlah Aset', angle: -90, position: 'insideLeft' }}
+              />
+              <YAxis 
+                yAxisId="right"
+                orientation="right"
+                tick={{ fontSize: 12 }}
+                tickFormatter={(value) => `Rp ${(value / 1000000).toFixed(0)}M`}
+                label={{ value: 'Nilai (Rupiah)', angle: 90, position: 'insideRight' }}
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#fff', 
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  padding: '8px'
+                }}
+                formatter={(value: any, name: string) => {
+                  if (name === 'value') {
+                    return [`Rp ${formatCurrency(value)}`, 'Nilai Total']
+                  }
+                  return [value, 'Jumlah Aset']
+                }}
+              />
+              <Legend />
+              <Bar yAxisId="left" dataKey="count" fill="#3b82f6" radius={[8, 8, 0, 0]} name="Jumlah Aset" />
+              <Line 
+                yAxisId="right" 
+                type="monotone" 
+                dataKey="value" 
+                stroke="#ef4444" 
+                strokeWidth={3}
+                dot={{ fill: '#ef4444', r: 5 }}
+                name="Nilai Total"
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </Card>
+      )}
 
       {/* Scheduled Work Orders - Only for Engineering & IT */}
       {(userProfile?.role?.trim() === 'Engineering' || 
