@@ -37,25 +37,43 @@ export function Sidebar() {
 
   // Show all menu items if userProfile is null (for development/testing)
   // Otherwise filter by role - fix role matching (trim and case insensitive)
-  const filteredMenuItems = userProfile?.role
+  // IMPORTANT: Asset Projects should be visible to ALL authenticated users
+  const filteredMenuItems = userProfile
     ? menuItems.filter((item) => {
-        const userRole = userProfile.role?.trim()
-        const matches = item.roles.some(role => role.trim() === userRole)
-        // Debug log untuk Asset Projects
+        // Special case: Asset Projects is always visible to authenticated users
         if (item.href === '/asset-projects') {
-          console.log('Asset Projects menu check:', {
-            userRole,
-            itemRoles: item.roles,
-            matches,
-            userProfile: userProfile.role
+          console.log('✅ Asset Projects: Always visible for authenticated users')
+          return true
+        }
+        
+        // For other menus, check role
+        const userRole = userProfile.role?.trim().toLowerCase()
+        const matches = item.roles.some(role => role.trim().toLowerCase() === userRole)
+        
+        // Debug log for other menus if needed
+        if (!matches && item.href === '/dashboard') {
+          console.log('⚠️ Dashboard menu check failed:', {
+            userRole: userProfile.role,
+            userRoleLower: userRole,
+            itemRoles: item.roles
           })
         }
+        
         return matches
       })
     : menuItems // Show all menus if no userProfile (for testing)
   
-  // Debug: Log filtered menu items
-  console.log('Filtered menu items:', filteredMenuItems.map(m => m.label))
+  // Debug: Log filtered menu items and user profile
+  console.log('📋 Sidebar Debug:', {
+    userProfile: userProfile ? { 
+      role: userProfile.role, 
+      full_name: userProfile.full_name,
+      id: userProfile.id 
+    } : null,
+    filteredMenuItems: filteredMenuItems.map(m => m.label),
+    hasAssetProjects: filteredMenuItems.some(m => m.href === '/asset-projects'),
+    allMenuItems: menuItems.map(m => m.label)
+  })
 
   return (
     <div className="w-64 bg-gradient-to-b from-green-900 via-green-800 to-green-900 text-white min-h-screen flex flex-col relative overflow-hidden">
