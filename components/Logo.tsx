@@ -40,7 +40,8 @@ export function Logo({ size = 'md', showText = true, className = '' }: LogoProps
             width={size === 'sm' ? 48 : size === 'md' ? 64 : 96}
             height={size === 'sm' ? 48 : size === 'md' ? 64 : 96}
             className="w-full h-full object-contain"
-            priority
+            priority={false}
+            loading="lazy"
             onError={() => setImageError(true)}
           />
         ) : (

@@ -163,6 +163,14 @@ export default function DashboardPage() {
           console.log('Project Assets Chart Data:', projectAssetsChartData)
         } else {
           console.log('No projects found or empty array')
+          // Set empty data but still show charts
+          setProjectStatusData([])
+          setProjectAssetsData([])
+        }
+        
+        if (projectsError) {
+          console.error('Error fetching projects:', projectsError)
+          // Still show charts even if there's an error
           setProjectStatusData([])
           setProjectAssetsData([])
         }
@@ -625,7 +633,7 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Asset Projects Charts - Always Show */}
+      {/* Asset Projects Charts - Always Show untuk Semua User */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Project Status Distribution */}
         <Card className="hover:shadow-lg transition-shadow duration-300">
@@ -633,7 +641,7 @@ export default function DashboardPage() {
             <h3 className="text-lg font-semibold text-gray-900">📊 Status Asset Projects</h3>
             <p className="text-sm text-gray-500">Distribusi status project asset</p>
           </div>
-          {projectStatusData.length > 0 ? (
+          {!loading && projectStatusData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -660,9 +668,16 @@ export default function DashboardPage() {
                 />
               </PieChart>
             </ResponsiveContainer>
-          ) : (
+          ) : !loading ? (
             <div className="flex items-center justify-center h-[300px] text-gray-400">
-              <p>Belum ada data project</p>
+              <div className="text-center">
+                <p className="mb-2">Belum ada data project</p>
+                <p className="text-xs text-gray-500">Buat project di menu Asset Projects untuk melihat chart</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-[300px]">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
             </div>
           )}
         </Card>
@@ -673,7 +688,7 @@ export default function DashboardPage() {
             <h3 className="text-lg font-semibold text-gray-900">📈 Assets per Project</h3>
             <p className="text-sm text-gray-500">Jumlah asset yang ter-assign ke setiap project</p>
           </div>
-          {projectAssetsData.length > 0 ? (
+          {!loading && projectAssetsData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={projectAssetsData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -697,9 +712,16 @@ export default function DashboardPage() {
                 <Bar dataKey="assets" fill="#8b5cf6" radius={[8, 8, 0, 0]} name="Jumlah Asset" />
               </BarChart>
             </ResponsiveContainer>
-          ) : (
+          ) : !loading ? (
             <div className="flex items-center justify-center h-[300px] text-gray-400">
-              <p>Belum ada asset yang ter-assign ke project</p>
+              <div className="text-center">
+                <p className="mb-2">Belum ada asset yang ter-assign ke project</p>
+                <p className="text-xs text-gray-500">Assign asset ke project untuk melihat chart</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-[300px]">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
             </div>
           )}
         </Card>
