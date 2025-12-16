@@ -40,9 +40,22 @@ export function Sidebar() {
   const filteredMenuItems = userProfile?.role
     ? menuItems.filter((item) => {
         const userRole = userProfile.role?.trim()
-        return item.roles.some(role => role.trim() === userRole)
+        const matches = item.roles.some(role => role.trim() === userRole)
+        // Debug log untuk Asset Projects
+        if (item.href === '/asset-projects') {
+          console.log('Asset Projects menu check:', {
+            userRole,
+            itemRoles: item.roles,
+            matches,
+            userProfile: userProfile.role
+          })
+        }
+        return matches
       })
     : menuItems // Show all menus if no userProfile (for testing)
+  
+  // Debug: Log filtered menu items
+  console.log('Filtered menu items:', filteredMenuItems.map(m => m.label))
 
   return (
     <div className="w-64 bg-gradient-to-b from-green-900 via-green-800 to-green-900 text-white min-h-screen flex flex-col relative overflow-hidden">

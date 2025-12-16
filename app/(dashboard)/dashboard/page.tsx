@@ -135,11 +135,13 @@ export default function DashboardPage() {
         setYearlyAcquisitionData(yearlyChartData)
 
         // Fetch Asset Projects data for charts
-        const { data: projects } = await supabase
+        const { data: projects, error: projectsError } = await supabase
           .from('asset_projects')
           .select('*, asset_project_assignments(*)')
         
-        if (projects) {
+        console.log('Asset Projects data:', { projects, error: projectsError })
+        
+        if (projects && projects.length > 0) {
           // Project Status Distribution
           const projectStatusCounts = projects.reduce((acc: any, project) => {
             acc[project.status] = (acc[project.status] || 0) + 1
@@ -150,6 +152,7 @@ export default function DashboardPage() {
             value: Number(value),
           }))
           setProjectStatusData(projectStatusChartData)
+          console.log('Project Status Chart Data:', projectStatusChartData)
 
           // Assets per Project
           const projectAssetsChartData = projects.map((project) => ({
@@ -157,6 +160,11 @@ export default function DashboardPage() {
             assets: (project.asset_project_assignments as any[])?.length || 0,
           })).filter((p) => p.assets > 0)
           setProjectAssetsData(projectAssetsChartData)
+          console.log('Project Assets Chart Data:', projectAssetsChartData)
+        } else {
+          console.log('No projects found or empty array')
+          setProjectStatusData([])
+          setProjectAssetsData([])
         }
 
         // Fetch work orders
