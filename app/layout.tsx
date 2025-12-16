@@ -9,8 +9,10 @@ export const metadata: Metadata = {
   title: 'Asset-Damar-Langit',
   description: 'Sistem Manajemen Aset Damar Langit',
   icons: {
-    icon: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
   },
 }
 
