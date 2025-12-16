@@ -1163,6 +1163,14 @@ export default function AssetsPage() {
           </div>
         </div>
 
+        {/* Info Tab Aktif */}
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            <strong>Tab Aktif:</strong> {activeTab === 'category' ? '📦 Kategori Asset' : '🎯 Project Asset'} 
+            <span className="ml-2">({filteredAssets.length} aset ditemukan)</span>
+          </p>
+        </div>
+
         {loading ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
