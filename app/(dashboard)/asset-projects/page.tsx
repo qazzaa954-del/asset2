@@ -444,46 +444,55 @@ export default function AssetProjectsPage() {
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => {
-                              setSelectedProject(project)
-                              setShowAssignModal(true)
-                            }}
-                          >
-                            <Plus className="w-3 h-3 mr-1" />
-                            Asset
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEditingProject(project)
-                              setFormData({
-                                project_name: project.project_name,
-                                project_code: project.project_code,
-                                description: project.description || '',
-                                start_date: project.start_date,
-                                end_date: project.end_date || '',
-                                budget: project.budget,
-                                actual_cost: project.actual_cost,
-                                status: project.status,
-                                department_id: project.department_id || '',
-                                project_manager: project.project_manager || '',
-                              })
-                              setShowForm(true)
-                            }}
-                          >
-                            <Edit className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDelete(project.id)}
-                          >
-                            <Trash2 className="w-3 h-3 text-red-600" />
-                          </Button>
+                          {isMasterAdmin && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => {
+                                setSelectedProject(project)
+                                setShowAssignModal(true)
+                              }}
+                            >
+                              <Plus className="w-3 h-3 mr-1" />
+                              Asset
+                            </Button>
+                          )}
+                          {isMasterAdmin && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingProject(project)
+                                  setFormData({
+                                    project_name: project.project_name,
+                                    project_code: project.project_code,
+                                    description: project.description || '',
+                                    start_date: project.start_date,
+                                    end_date: project.end_date || '',
+                                    budget: project.budget,
+                                    actual_cost: project.actual_cost,
+                                    status: project.status,
+                                    department_id: project.department_id || '',
+                                    project_manager: project.project_manager || '',
+                                  })
+                                  setShowForm(true)
+                                }}
+                              >
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDelete(project.id)}
+                              >
+                                <Trash2 className="w-3 h-3 text-red-600" />
+                              </Button>
+                            </>
+                          )}
+                          {!isMasterAdmin && (
+                            <span className="text-xs text-gray-500">View Only</span>
+                          )}
                         </div>
                       </td>
                     </tr>
