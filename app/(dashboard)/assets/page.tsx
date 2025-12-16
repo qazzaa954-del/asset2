@@ -23,6 +23,7 @@ export default function AssetsPage() {
   const [generatingSample, setGeneratingSample] = useState(false)
   const [editingAsset, setEditingAsset] = useState<any>(null)
   const [activeTab, setActiveTab] = useState<'category' | 'project'>('category')
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all') // 'all' untuk semua departemen
   const [formData, setFormData] = useState({
     asset_name: '',
     location: '',
@@ -42,6 +43,19 @@ export default function AssetsPage() {
   useEffect(() => {
     fetchData()
   }, [])
+
+  // Set default selected department based on user role
+  useEffect(() => {
+    if (!userProfile) return
+    
+    const isMasterAdmin = userProfile?.role?.trim() === 'Master Admin'
+    
+    if (!isMasterAdmin && userProfile.department_id) {
+      setSelectedDepartment(userProfile.department_id)
+    } else if (isMasterAdmin) {
+      setSelectedDepartment('all')
+    }
+  }, [userProfile])
 
   const fetchData = async () => {
     try {
@@ -652,7 +666,14 @@ export default function AssetsPage() {
     
     if (!matchesSearch) return false
     
-    // Filter by tab
+    // Filter by department
+    if (selectedDepartment !== 'all') {
+      if (asset.department_id !== selectedDepartment) {
+        return false
+      }
+    }
+    
+    // Filter by tab (category/project)
     if (activeTab === 'project') {
       // Show only assets that are assigned to projects
       return projectAssignments.some((pa) => pa.asset_id === asset.id)
@@ -1126,7 +1147,8 @@ export default function AssetsPage() {
 
       {/* Tabs untuk Kategori Asset dan Project Asset - Terlihat untuk Semua User */}
       <Card>
-        <div className="mb-6 border-b border-gray-200">
+        {/* Tabs Utama: Kategori Asset dan Project Asset */}
+        <div className="mb-4 border-b border-gray-200">
           <nav className="flex space-x-8">
             <button
               onClick={() => setActiveTab('category')}
@@ -1150,6 +1172,48 @@ export default function AssetsPage() {
             </button>
           </nav>
         </div>
+
+        {/* Tabs Departemen */}
+        <div className="mb-6 border-b border-gray-200">
+          <div className="mb-2">
+            <p className="text-sm font-medium text-gray-700 mb-2">Filter berdasarkan Departemen:</p>
+          </div>
+          <div className="flex flex-wrap gap-2 overflow-x-auto pb-2">
+            {isMasterAdmin && (
+              <button
+                onClick={() => setSelectedDepartment('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                  selectedDepartment === 'all'
+                    ? 'bg-green-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                🏢 Semua Departemen
+              </button>
+            )}
+            {departments
+              .filter((dept) => {
+                // Jika bukan Master Admin, hanya tampilkan departemen mereka
+                if (!isMasterAdmin && userProfile?.department_id) {
+                  return dept.id === userProfile.department_id
+                }
+                return true
+              })
+              .map((dept) => (
+                <button
+                  key={dept.id}
+                  onClick={() => setSelectedDepartment(dept.id)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                    selectedDepartment === dept.id
+                      ? 'bg-green-600 text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {dept.name}
+                </button>
+              ))}
+          </div>
+        </div>
         
         <div className="mb-4">
           <div className="relative">
@@ -1167,6 +1231,11 @@ export default function AssetsPage() {
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
             <strong>Tab Aktif:</strong> {activeTab === 'category' ? '📦 Kategori Asset' : '🎯 Project Asset'} 
+            {selectedDepartment !== 'all' && (
+              <span className="ml-2">
+                | <strong>Departemen:</strong> {departments.find(d => d.id === selectedDepartment)?.name || 'Tidak diketahui'}
+              </span>
+            )}
             <span className="ml-2">({filteredAssets.length} aset ditemukan)</span>
           </p>
         </div>
