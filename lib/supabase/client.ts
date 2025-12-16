@@ -1,10 +1,16 @@
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { createClient } from '@supabase/supabase-js'
 
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// Use single instance to avoid multiple GoTrueClient instances warning
+// createClientComponentClient handles cookies automatically and is recommended for Next.js
+let supabaseInstance: ReturnType<typeof createClientComponentClient> | null = null
 
-export const supabaseClient = createClientComponentClient()
+export const supabase = (() => {
+  if (!supabaseInstance) {
+    supabaseInstance = createClientComponentClient()
+  }
+  return supabaseInstance
+})()
+
+// Alias for backward compatibility
+export const supabaseClient = supabase
 

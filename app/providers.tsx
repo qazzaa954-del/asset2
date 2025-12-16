@@ -33,10 +33,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [fetchingProfile, setFetchingProfile] = useState(false)
+  const [lastFetchedUserId, setLastFetchedUserId] = useState<string | null>(null)
 
   useEffect(() => {
+    let mounted = true
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session }, error: sessionError }) => {
+      if (!mounted) return
+      
       if (sessionError) {
         console.error('Session error:', sessionError)
         setError(sessionError.message)
@@ -56,20 +62,38 @@ export function Providers({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return
+      
       setUser(session?.user ?? null)
       if (session?.user) {
-        fetchUserProfile(session.user.id)
+        // Only fetch if user ID changed or not currently fetching
+        if (session.user.id !== lastFetchedUserId && !fetchingProfile) {
+          fetchUserProfile(session.user.id)
+        }
       } else {
         setUserProfile(null)
         setError(null)
         setLoading(false)
+        setLastFetchedUserId(null)
       }
     })
 
-    return () => subscription.unsubscribe()
-  }, [])
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
+  }, [lastFetchedUserId, fetchingProfile])
 
   const fetchUserProfile = async (userId: string) => {
+    // Prevent multiple simultaneous fetches for the same user
+    if (fetchingProfile && lastFetchedUserId === userId) {
+      console.log('Already fetching profile for user:', userId)
+      return
+    }
+
+    setFetchingProfile(true)
+    setLastFetchedUserId(userId)
+    
     try {
       console.log('Fetching user profile for ID:', userId)
       
@@ -168,6 +192,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       setUserProfile(null)
     } finally {
       setLoading(false)
+      setFetchingProfile(false)
     }
   }
 
