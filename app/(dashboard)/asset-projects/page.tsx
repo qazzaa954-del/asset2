@@ -40,12 +40,11 @@ export default function AssetProjectsPage() {
   })
 
   const isMasterAdmin = userProfile?.role?.trim() === 'Master Admin'
+  const canViewProjects = true // Semua user bisa view, tapi hanya Master Admin bisa edit
 
   useEffect(() => {
-    if (isMasterAdmin) {
-      fetchData()
-    }
-  }, [isMasterAdmin])
+    fetchData()
+  }, [])
 
   const fetchData = async () => {
     try {
@@ -186,17 +185,7 @@ export default function AssetProjectsPage() {
     p.project_code.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  if (!isMasterAdmin) {
-    return (
-      <div className="space-y-6">
-        <Card>
-          <div className="text-center py-8">
-            <p className="text-gray-600">Akses ditolak. Hanya Master Admin yang dapat mengakses halaman ini.</p>
-          </div>
-        </Card>
-      </div>
-    )
-  }
+  // Semua user bisa view, tapi hanya Master Admin bisa edit/create/delete
 
   if (loading) {
     return (
@@ -215,12 +204,16 @@ export default function AssetProjectsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Asset Projects</h1>
-          <p className="text-gray-600 mt-1">Kelola proyek-proyek asset</p>
+          <p className="text-gray-600 mt-1">
+            {isMasterAdmin ? 'Kelola proyek-proyek asset' : 'Lihat proyek-proyek asset'}
+          </p>
         </div>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Tambah Project
-        </Button>
+        {isMasterAdmin && (
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Tambah Project
+          </Button>
+        )}
       </div>
 
       {showForm && (

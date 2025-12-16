@@ -45,6 +45,8 @@ export default function DashboardPage() {
   const [statusData, setStatusData] = useState<Array<{ name: string; value: number }>>([])
   const [categoryData, setCategoryData] = useState<Array<{ name: string; value: number }>>([])
   const [yearlyAcquisitionData, setYearlyAcquisitionData] = useState<Array<{ year: number; count: number; value: number }>>([])
+  const [projectStatusData, setProjectStatusData] = useState<Array<{ name: string; value: number }>>([])
+  const [projectAssetsData, setProjectAssetsData] = useState<Array<{ project: string; assets: number }>>([])
   const [loading, setLoading] = useState(true)
   const [creatingSample, setCreatingSample] = useState(false)
 
@@ -131,6 +133,31 @@ export default function DashboardPage() {
         setStatusData(statusChartData)
         setCategoryData(categoryChartData)
         setYearlyAcquisitionData(yearlyChartData)
+
+        // Fetch Asset Projects data for charts
+        const { data: projects } = await supabase
+          .from('asset_projects')
+          .select('*, asset_project_assignments(*)')
+        
+        if (projects) {
+          // Project Status Distribution
+          const projectStatusCounts = projects.reduce((acc: any, project) => {
+            acc[project.status] = (acc[project.status] || 0) + 1
+            return acc
+          }, {})
+          const projectStatusChartData = Object.entries(projectStatusCounts).map(([name, value]) => ({
+            name,
+            value: Number(value),
+          }))
+          setProjectStatusData(projectStatusChartData)
+
+          // Assets per Project
+          const projectAssetsChartData = projects.map((project) => ({
+            project: project.project_name,
+            assets: (project.asset_project_assignments as any[])?.length || 0,
+          })).filter((p) => p.assets > 0)
+          setProjectAssetsData(projectAssetsChartData)
+        }
 
         // Fetch work orders
         const { data: workOrders } = await supabase
@@ -589,6 +616,86 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </Card>
       )}
+
+      {/* Asset Projects Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Project Status Distribution */}
+        <Card className="hover:shadow-lg transition-shadow duration-300">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Status Asset Projects</h3>
+            <p className="text-sm text-gray-500">Distribusi status project asset</p>
+          </div>
+          {projectStatusData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={projectStatusData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={90}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {projectStatusData.map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#6b7280'][index % 5]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '8px'
+                  }} 
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-gray-400">
+              <p>Belum ada data project</p>
+            </div>
+          )}
+        </Card>
+
+        {/* Assets per Project */}
+        <Card className="hover:shadow-lg transition-shadow duration-300">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Assets per Project</h3>
+            <p className="text-sm text-gray-500">Jumlah asset yang ter-assign ke setiap project</p>
+          </div>
+          {projectAssetsData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={projectAssetsData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="project" 
+                  angle={-45} 
+                  textAnchor="end" 
+                  height={100}
+                  tick={{ fontSize: 11 }}
+                />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '8px'
+                  }} 
+                />
+                <Legend />
+                <Bar dataKey="assets" fill="#8b5cf6" radius={[8, 8, 0, 0]} name="Jumlah Asset" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-gray-400">
+              <p>Belum ada asset yang ter-assign ke project</p>
+            </div>
+          )}
+        </Card>
+      </div>
 
       {/* Scheduled Work Orders - Only for Engineering & IT */}
       {(userProfile?.role?.trim() === 'Engineering' || 
