@@ -625,12 +625,12 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Asset Projects Charts */}
+      {/* Asset Projects Charts - Always Show */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Project Status Distribution */}
         <Card className="hover:shadow-lg transition-shadow duration-300">
           <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Status Asset Projects</h3>
+            <h3 className="text-lg font-semibold text-gray-900">📊 Status Asset Projects</h3>
             <p className="text-sm text-gray-500">Distribusi status project asset</p>
           </div>
           {projectStatusData.length > 0 ? (
@@ -670,7 +670,7 @@ export default function DashboardPage() {
         {/* Assets per Project */}
         <Card className="hover:shadow-lg transition-shadow duration-300">
           <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Assets per Project</h3>
+            <h3 className="text-lg font-semibold text-gray-900">📈 Assets per Project</h3>
             <p className="text-sm text-gray-500">Jumlah asset yang ter-assign ke setiap project</p>
           </div>
           {projectAssetsData.length > 0 ? (
