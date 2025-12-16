@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
-import { Plus, Edit, Trash2, UserPlus } from 'lucide-react'
+import { Plus, Edit, Trash2, UserPlus, Settings, Lock, Unlock } from 'lucide-react'
 
 export default function UsersPage() {
   const { userProfile } = useAuth()
@@ -15,6 +15,10 @@ export default function UsersPage() {
   const [departments, setDepartments] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editingUser, setEditingUser] = useState<any>(null)
+  const [showPermissionsModal, setShowPermissionsModal] = useState(false)
+  const [selectedDeptForPermissions, setSelectedDeptForPermissions] = useState<any>(null)
+  const [permissions, setPermissions] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState<'users' | 'permissions'>('users')
   const [formData, setFormData] = useState({
     email: '',
     full_name: '',
@@ -41,6 +45,92 @@ export default function UsersPage() {
       if (deptRes.data) setDepartments(deptRes.data)
     } catch (error) {
       console.error('Error fetching data:', error)
+    }
+  }
+
+  const fetchPermissions = async (departmentId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('department_menu_permissions')
+        .select('*')
+        .eq('department_id', departmentId)
+        .order('menu_label')
+
+      if (error) throw error
+      setPermissions(data || [])
+    } catch (error) {
+      console.error('Error fetching permissions:', error)
+      alert('Gagal memuat permissions')
+    }
+  }
+
+  const handleOpenPermissions = async (dept: any) => {
+    setSelectedDeptForPermissions(dept)
+    setShowPermissionsModal(true)
+    await fetchPermissions(dept.id)
+  }
+
+  const handleTogglePermission = async (permission: any) => {
+    try {
+      const { error } = await supabase
+        .from('department_menu_permissions')
+        .update({ is_allowed: !permission.is_allowed })
+        .eq('id', permission.id)
+
+      if (error) throw error
+      await fetchPermissions(selectedDeptForPermissions.id)
+      alert('Permission berhasil diupdate!')
+    } catch (error: any) {
+      console.error('Error updating permission:', error)
+      alert(error.message || 'Gagal update permission')
+    }
+  }
+
+  const menuItems = [
+    { path: '/dashboard', label: 'Dashboard' },
+    { path: '/assets', label: 'Master Inventory' },
+    { path: '/asset-projects', label: 'Asset Projects' },
+    { path: '/departments', label: 'Master Departemen' },
+    { path: '/financial', label: 'Finansial & Audit' },
+    { path: '/depreciation', label: 'Depresiasi' },
+    { path: '/work-orders', label: 'Work Order' },
+    { path: '/users', label: 'Manajemen Pengguna' },
+    { path: '/reports', label: 'Laporan BAK' },
+  ]
+
+  const initializePermissions = async (deptId: string) => {
+    try {
+      // Check existing permissions
+      const { data: existing } = await supabase
+        .from('department_menu_permissions')
+        .select('menu_path')
+        .eq('department_id', deptId)
+
+      const existingPaths = (existing || []).map(p => p.menu_path)
+
+      // Insert missing permissions
+      const toInsert = menuItems
+        .filter(m => !existingPaths.includes(m.path))
+        .map(m => ({
+          department_id: deptId,
+          menu_path: m.path,
+          menu_label: m.label,
+          is_allowed: true,
+          created_by: userProfile!.id,
+        }))
+
+      if (toInsert.length > 0) {
+        const { error } = await supabase
+          .from('department_menu_permissions')
+          .insert(toInsert)
+
+        if (error) throw error
+      }
+
+      await fetchPermissions(deptId)
+    } catch (error: any) {
+      console.error('Error initializing permissions:', error)
+      alert(error.message || 'Gagal initialize permissions')
     }
   }
 
@@ -179,15 +269,46 @@ export default function UsersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Manajemen Pengguna</h1>
-          <p className="text-gray-600 mt-1">Kelola pengguna dan hak akses</p>
+          <p className="text-gray-600 mt-1">Kelola pengguna dan hak akses menu per departemen</p>
         </div>
-        <Button onClick={() => setShowForm(true)}>
-          <UserPlus className="w-4 h-4 mr-2" />
-          Tambah Pengguna
-        </Button>
+        {activeTab === 'users' && (
+          <Button onClick={() => setShowForm(true)}>
+            <UserPlus className="w-4 h-4 mr-2" />
+            Tambah Pengguna
+          </Button>
+        )}
       </div>
 
-      {showForm && (
+      {/* Tabs */}
+      <Card>
+        <div className="border-b border-gray-200 mb-6">
+          <nav className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'users'
+                  ? 'border-green-600 text-green-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              👥 Daftar Pengguna
+            </button>
+            <button
+              onClick={() => setActiveTab('permissions')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'permissions'
+                  ? 'border-green-600 text-green-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              🔐 Kelola Akses Menu
+            </button>
+          </nav>
+        </div>
+
+        {activeTab === 'users' && (
+          <>
+            {showForm && (
         <Card title={editingUser ? 'Edit Pengguna' : 'Tambah Pengguna Baru'}>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -265,106 +386,203 @@ export default function UsersPage() {
             </div>
           </form>
         </Card>
-      )}
+            )}
 
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Email
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Nama Lengkap
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Role
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Departemen
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Aksi
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
-                <tr key={user.id}>
-                  <td className="px-4 py-3 text-sm">{user.email}</td>
-                  <td className="px-4 py-3 text-sm">{user.full_name}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        user.role === 'Master Admin'
-                          ? 'bg-purple-100 text-purple-800'
-                          : user.role === 'Engineering' || user.role === 'IT'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {user.role}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    {(user.departments as any)?.name || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        user.is_active
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {user.is_active ? 'Aktif' : 'Nonaktif'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingUser(user)
-                          setFormData({
-                            email: user.email,
-                            full_name: user.full_name,
-                            role: user.role,
-                            department_id: user.department_id || '',
-                            password: '',
-                          })
-                          setShowForm(true)
-                        }}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={user.is_active ? 'danger' : 'secondary'}
-                        onClick={() => handleToggleActive(user)}
-                      >
-                        {user.is_active ? 'Nonaktifkan' : 'Aktifkan'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onClick={() => handleDelete(user.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+            <Card>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Email
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Nama Lengkap
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Role
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Departemen
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Aksi
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {users.map((user) => (
+                      <tr key={user.id}>
+                        <td className="px-4 py-3 text-sm">{user.email}</td>
+                        <td className="px-4 py-3 text-sm">{user.full_name}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs ${
+                              user.role === 'Master Admin'
+                                ? 'bg-purple-100 text-purple-800'
+                                : user.role === 'Engineering' || user.role === 'IT'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {user.role}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {(user.departments as any)?.name || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs ${
+                              user.is_active
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {user.is_active ? 'Aktif' : 'Nonaktif'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingUser(user)
+                                setFormData({
+                                  email: user.email,
+                                  full_name: user.full_name,
+                                  role: user.role,
+                                  department_id: user.department_id || '',
+                                  password: '',
+                                })
+                                setShowForm(true)
+                              }}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={user.is_active ? 'danger' : 'secondary'}
+                              onClick={() => handleToggleActive(user)}
+                            >
+                              {user.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              onClick={() => handleDelete(user.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </>
+        )}
+
+        {activeTab === 'permissions' && (
+          <div>
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>Info:</strong> Atur akses menu untuk setiap departemen. Master Admin selalu memiliki akses penuh ke semua menu.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {departments.map((dept) => (
+                <Card key={dept.id} className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleOpenPermissions(dept)}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-gray-900">{dept.name}</h3>
+                      <p className="text-sm text-gray-600 mt-1">Kode: {dept.code}</p>
                     </div>
-                  </td>
-                </tr>
+                    <Settings className="w-5 h-5 text-gray-400" />
+                  </div>
+                </Card>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
+        )}
       </Card>
+
+      {/* Permissions Modal */}
+      {showPermissionsModal && selectedDeptForPermissions && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  Kelola Akses Menu - {selectedDeptForPermissions.name}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Aktifkan atau nonaktifkan akses menu untuk departemen ini
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowPermissionsModal(false)
+                  setSelectedDeptForPermissions(null)
+                  setPermissions([])
+                }}
+              >
+                ✕
+              </Button>
+            </div>
+
+            {permissions.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600 mb-4">Belum ada permissions untuk departemen ini</p>
+                <Button onClick={() => initializePermissions(selectedDeptForPermissions.id)}>
+                  Initialize Permissions
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {permissions.map((permission) => (
+                  <div
+                    key={permission.id}
+                    className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                  >
+                    <div className="flex-1">
+                      <h3 className="font-medium text-gray-900">{permission.menu_label}</h3>
+                      <p className="text-xs text-gray-500 mt-1">{permission.menu_path}</p>
+                    </div>
+                    <button
+                      onClick={() => handleTogglePermission(permission)}
+                      className={`ml-4 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        permission.is_allowed
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                          : 'bg-red-100 text-red-800 hover:bg-red-200'
+                      }`}
+                    >
+                      {permission.is_allowed ? (
+                        <>
+                          <Unlock className="w-4 h-4 inline mr-1" />
+                          Diizinkan
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="w-4 h-4 inline mr-1" />
+                          Diblokir
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

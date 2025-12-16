@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/app/providers'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase/client'
 import {
   LayoutDashboard,
   Package,
@@ -34,18 +36,67 @@ const menuItems = [
 export function Sidebar() {
   const pathname = usePathname()
   const { userProfile, signOut } = useAuth()
+  const [departmentPermissions, setDepartmentPermissions] = useState<Set<string>>(new Set())
+
+  // Fetch department permissions
+  useEffect(() => {
+    if (!userProfile || !userProfile.department_id) return
+
+    const isMasterAdmin = userProfile.role?.trim() === 'Master Admin'
+    
+    // Master Admin always has access to all menus
+    if (isMasterAdmin) {
+      setDepartmentPermissions(new Set(menuItems.map(m => m.href)))
+      return
+    }
+
+    // Fetch permissions for user's department
+    const fetchPermissions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('department_menu_permissions')
+          .select('menu_path, is_allowed')
+          .eq('department_id', userProfile.department_id)
+          .eq('is_allowed', true)
+
+        if (error) {
+          console.error('Error fetching permissions:', error)
+          // Fallback to role-based access if permissions not found
+          return
+        }
+
+        const allowedPaths = new Set((data || []).map(p => p.menu_path))
+        setDepartmentPermissions(allowedPaths)
+      } catch (error) {
+        console.error('Error in fetchPermissions:', error)
+      }
+    }
+
+    fetchPermissions()
+  }, [userProfile])
 
   // Show all menu items if userProfile is null (for development/testing)
-  // Otherwise filter by role - fix role matching (trim and case insensitive)
-  // IMPORTANT: Asset Projects should be visible to ALL authenticated users
+  // Otherwise filter by role and permissions
   const filteredMenuItems = userProfile
     ? menuItems.filter((item) => {
+        const isMasterAdmin = userProfile.role?.trim() === 'Master Admin'
+        
+        // Master Admin always has access
+        if (isMasterAdmin) {
+          return true
+        }
+
         // Special case: Asset Projects is always visible to authenticated users
         if (item.href === '/asset-projects') {
           return true
         }
-        
-        // For other menus, check role
+
+        // Check department permissions
+        if (userProfile.department_id && departmentPermissions.size > 0) {
+          return departmentPermissions.has(item.href)
+        }
+
+        // Fallback to role-based access if permissions not loaded yet
         const userRole = userProfile.role?.trim().toLowerCase()
         const matches = item.roles.some(role => role.trim().toLowerCase() === userRole)
         

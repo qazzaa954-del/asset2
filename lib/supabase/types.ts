@@ -355,6 +355,38 @@ export type Database = {
           updated_at?: string
         }
       }
+      department_menu_permissions: {
+        Row: {
+          id: string
+          department_id: string
+          menu_path: string
+          menu_label: string
+          is_allowed: boolean
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          department_id: string
+          menu_path: string
+          menu_label: string
+          is_allowed?: boolean
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          department_id?: string
+          menu_path?: string
+          menu_label?: string
+          is_allowed?: boolean
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
   }
 }
