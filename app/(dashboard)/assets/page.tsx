@@ -22,6 +22,7 @@ export default function AssetsPage() {
   const [bulkCount, setBulkCount] = useState(5)
   const [generatingSample, setGeneratingSample] = useState(false)
   const [editingAsset, setEditingAsset] = useState<any>(null)
+  const [activeTab, setActiveTab] = useState<'category' | 'project'>('category')
   const [formData, setFormData] = useState({
     asset_name: '',
     location: '',
@@ -34,6 +35,8 @@ export default function AssetsPage() {
     status: 'Aktif',
     category: 'Office',
     photo: null as File | null,
+    photo_before: null as File | null,
+    photo_after: null as File | null,
   })
 
   useEffect(() => {
@@ -170,11 +173,16 @@ export default function AssetsPage() {
         sequenceNumber = lastSeq + 1
       }
 
-      // Upload photo if exists
+      // Upload photos if exists
       let photoUrl = null
+      let photoBeforeUrl = null
+      let photoAfterUrl = null
+      
+      const assetCode = `${dept.initial_code}-${String(sequenceNumber).padStart(4, '0')}`
+      
+      // Upload main photo
       if (formData.photo) {
         try {
-          const assetCode = `${dept.initial_code}-${String(sequenceNumber).padStart(4, '0')}`
           const fileExt = formData.photo.name.split('.').pop()
           const fileName = `${assetCode}-${Date.now()}.${fileExt}`
           
@@ -187,7 +195,6 @@ export default function AssetsPage() {
           if (uploadError) {
             console.error('Upload error:', uploadError)
             alert(`Error upload foto: ${uploadError.message}`)
-            // Lanjutkan tanpa foto jika upload gagal
           } else if (uploadData) {
             const { data: urlData } = supabase.storage
               .from('asset-photos')
@@ -198,10 +205,51 @@ export default function AssetsPage() {
         } catch (error: any) {
           console.error('Unexpected error uploading photo:', error)
           alert(`Error upload foto: ${error.message}`)
-          // Lanjutkan tanpa foto jika upload gagal
         }
-      } else {
-        console.log('No photo to upload')
+      }
+      
+      // Upload photo_before (untuk project tracking)
+      if (formData.photo_before) {
+        try {
+          const fileExt = formData.photo_before.name.split('.').pop()
+          const fileName = `${assetCode}-before-${Date.now()}.${fileExt}`
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('asset-photos')
+            .upload(fileName, formData.photo_before)
+
+          if (!uploadError && uploadData) {
+            const { data: urlData } = supabase.storage
+              .from('asset-photos')
+              .getPublicUrl(fileName)
+            photoBeforeUrl = urlData.publicUrl
+            console.log('Photo before uploaded successfully:', photoBeforeUrl)
+          }
+        } catch (error: any) {
+          console.error('Error uploading photo_before:', error)
+        }
+      }
+      
+      // Upload photo_after (untuk project tracking)
+      if (formData.photo_after) {
+        try {
+          const fileExt = formData.photo_after.name.split('.').pop()
+          const fileName = `${assetCode}-after-${Date.now()}.${fileExt}`
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('asset-photos')
+            .upload(fileName, formData.photo_after)
+
+          if (!uploadError && uploadData) {
+            const { data: urlData } = supabase.storage
+              .from('asset-photos')
+              .getPublicUrl(fileName)
+            photoAfterUrl = urlData.publicUrl
+            console.log('Photo after uploaded successfully:', photoAfterUrl)
+          }
+        } catch (error: any) {
+          console.error('Error uploading photo_after:', error)
+        }
       }
 
       // Pastikan department_id ter-set dengan benar
@@ -229,12 +277,18 @@ export default function AssetsPage() {
         created_by: assetData.created_by,
       }
       
-      // Set photo_url hanya jika ada
+      // Set photo URLs hanya jika ada
       if (photoUrl) {
         cleanAssetData.photo_url = photoUrl
         console.log('photo_url akan dikirim:', photoUrl)
-      } else {
-        console.log('photoUrl is null, tidak akan mengirim photo_url')
+      }
+      if (photoBeforeUrl) {
+        cleanAssetData.photo_before = photoBeforeUrl
+        console.log('photo_before akan dikirim:', photoBeforeUrl)
+      }
+      if (photoAfterUrl) {
+        cleanAssetData.photo_after = photoAfterUrl
+        console.log('photo_after akan dikirim:', photoAfterUrl)
       }
 
       // Debug log untuk melihat data yang akan dikirim
@@ -289,6 +343,8 @@ export default function AssetsPage() {
         status: 'Aktif',
         category: 'Office',
         photo: null,
+        photo_before: null,
+        photo_after: null,
       })
       fetchData()
     } catch (error: any) {
@@ -362,6 +418,8 @@ export default function AssetsPage() {
         status: 'Aktif',
         category: 'Office',
         photo: null,
+        photo_before: null,
+        photo_after: null,
       })
       alert(`Berhasil menambahkan ${bulkCount} aset sekaligus!`)
       fetchData()
@@ -572,11 +630,37 @@ export default function AssetsPage() {
     }
   }
 
-  const filteredAssets = assets.filter(
-    (asset) =>
+  // Fetch project assignments untuk filter project assets
+  const [projectAssignments, setProjectAssignments] = useState<any[]>([])
+  
+  useEffect(() => {
+    if (activeTab === 'project') {
+      supabase
+        .from('asset_project_assignments')
+        .select('asset_id')
+        .then(({ data }) => {
+          setProjectAssignments(data || [])
+        })
+    }
+  }, [activeTab])
+
+  const filteredAssets = assets.filter((asset) => {
+    // Filter by search term
+    const matchesSearch =
       asset.asset_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       asset.asset_code.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+    
+    if (!matchesSearch) return false
+    
+    // Filter by tab
+    if (activeTab === 'project') {
+      // Show only assets that are assigned to projects
+      return projectAssignments.some((pa) => pa.asset_id === asset.id)
+    } else {
+      // Show assets that are NOT assigned to projects (category assets)
+      return !projectAssignments.some((pa) => pa.asset_id === asset.id)
+    }
+  })
 
   const isMasterAdmin = userProfile?.role?.trim() === 'Master Admin'
 
@@ -972,6 +1056,43 @@ export default function AssetsPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
+              {/* Photo Before & After untuk Project Tracking (Semua Departemen bisa akses) */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Foto Sebelum Project
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(e) =>
+                      setFormData({ ...formData, photo_before: e.target.files?.[0] || null })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Foto kondisi asset sebelum project (untuk tracking)
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Foto Sesudah Project
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(e) =>
+                      setFormData({ ...formData, photo_after: e.target.files?.[0] || null })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Foto kondisi asset sesudah project (untuk tracking)
+                  </p>
+                </div>
+              </div>
             </div>
             <div className="flex gap-3">
               <Button type="submit">{editingAsset && isMasterAdmin ? 'Update' : 'Simpan'}</Button>
@@ -1004,6 +1125,32 @@ export default function AssetsPage() {
       )}
 
       <Card>
+        {/* Tabs untuk Kategori Asset dan Project Asset */}
+        <div className="mb-6 border-b border-gray-200">
+          <nav className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab('category')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'category'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Kategori Asset
+            </button>
+            <button
+              onClick={() => setActiveTab('project')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'project'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Project Asset
+            </button>
+          </nav>
+        </div>
+        
         <div className="mb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -1133,6 +1280,8 @@ export default function AssetsPage() {
                                 status: asset.status,
                                 category: asset.category,
                                 photo: null,
+                                photo_before: null,
+                                photo_after: null,
                               })
                               setShowForm(true)
                             }}

@@ -42,6 +42,8 @@ export type Database = {
           status: 'Aktif' | 'Disposal' | 'Repair'
           category: 'Room' | 'Public Area' | 'Office'
           photo_url: string | null
+          photo_before: string | null
+          photo_after: string | null
           barcode: string | null
           book_value: number
           created_at: string
@@ -62,6 +64,8 @@ export type Database = {
           status: 'Aktif' | 'Disposal' | 'Repair'
           category: 'Room' | 'Public Area' | 'Office'
           photo_url?: string | null
+          photo_before?: string | null
+          photo_after?: string | null
           barcode?: string | null
           book_value?: number
           created_at?: string
@@ -82,6 +86,8 @@ export type Database = {
           status?: 'Aktif' | 'Disposal' | 'Repair'
           category?: 'Room' | 'Public Area' | 'Office'
           photo_url?: string | null
+          photo_before?: string | null
+          photo_after?: string | null
           barcode?: string | null
           book_value?: number
           created_at?: string
