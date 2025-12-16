@@ -7,8 +7,9 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
-import { Plus, Search, Edit, Trash2, Eye, Package, Calendar, DollarSign, User } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Eye, Package, Calendar, DollarSign, User, FileText, Image as ImageIcon, X } from 'lucide-react'
 import { formatDate, formatRupiah, parseRupiah } from '@/lib/utils'
+import Image from 'next/image'
 
 export default function AssetProjectsPage() {
   const { userProfile } = useAuth()
@@ -37,10 +38,26 @@ export default function AssetProjectsPage() {
   const [assignFormData, setAssignFormData] = useState({
     asset_id: '',
     notes: '',
+    photo_before: null as File | null,
+    photo_after: null as File | null,
   })
+  const [showAssetsModal, setShowAssetsModal] = useState(false)
+  const [selectedProjectForAssets, setSelectedProjectForAssets] = useState<any>(null)
+  const [editingAssignment, setEditingAssignment] = useState<any>(null)
 
   const isMasterAdmin = userProfile?.role?.trim() === 'Master Admin'
-  const canViewProjects = true // Semua user bisa view, tapi hanya Master Admin bisa edit
+  // Semua user bisa manage project mereka sendiri (untuk department mereka atau jika Master Admin)
+  const canManageProjects = true
+  const canViewProjects = true // Semua user bisa view
+  
+  // Helper function untuk check apakah user bisa edit/delete project tertentu
+  const canEditProject = (project: any) => {
+    if (isMasterAdmin) return true
+    if (!userProfile) return false
+    // User bisa edit project yang dibuat oleh mereka atau untuk department mereka
+    return project.created_by === userProfile.id || 
+           (project.department_id && project.department_id === userProfile.department_id)
+  }
 
   useEffect(() => {
     fetchData()
@@ -74,16 +91,16 @@ export default function AssetProjectsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!userProfile || !isMasterAdmin) return
+    if (!userProfile) return
 
     try {
       const projectData = {
         ...formData,
         budget: parseRupiah(formData.budget.toString()) || 0,
         actual_cost: parseRupiah(formData.actual_cost.toString()) || 0,
-        department_id: formData.department_id || null,
+        department_id: formData.department_id || userProfile.department_id || null,
         project_manager: formData.project_manager || null,
-        created_by: userProfile.id,
+        created_by: editingProject ? editingProject.created_by : userProfile.id,
       }
 
       if (editingProject) {
@@ -137,22 +154,79 @@ export default function AssetProjectsPage() {
     }
   }
 
+  const uploadPhoto = async (file: File, folder: string): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+      const filePath = `${folder}/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('asset-photos')
+        .upload(filePath, file)
+
+      if (uploadError) {
+        console.error('Error uploading photo:', uploadError)
+        return null
+      }
+
+      const { data } = supabase.storage.from('asset-photos').getPublicUrl(filePath)
+      return data.publicUrl
+    } catch (error) {
+      console.error('Error in uploadPhoto:', error)
+      return null
+    }
+  }
+
   const handleAssignAsset = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedProject) return
 
     try {
-      const { error } = await supabase.from('asset_project_assignments').insert({
+      let photoBeforeUrl = null
+      let photoAfterUrl = null
+
+      // Upload foto before jika ada
+      if (assignFormData.photo_before) {
+        photoBeforeUrl = await uploadPhoto(assignFormData.photo_before, 'project-assets')
+        if (!photoBeforeUrl) {
+          alert('Gagal upload foto before, tetapi akan melanjutkan...')
+        }
+      }
+
+      // Upload foto after jika ada
+      if (assignFormData.photo_after) {
+        photoAfterUrl = await uploadPhoto(assignFormData.photo_after, 'project-assets')
+        if (!photoAfterUrl) {
+          alert('Gagal upload foto after, tetapi akan melanjutkan...')
+        }
+      }
+
+      const assignmentData: any = {
         project_id: selectedProject.id,
         asset_id: assignFormData.asset_id,
         notes: assignFormData.notes || null,
-      })
+      }
 
-      if (error) throw error
-      alert('Asset berhasil ditambahkan ke project!')
+      if (photoBeforeUrl) assignmentData.photo_before = photoBeforeUrl
+      if (photoAfterUrl) assignmentData.photo_after = photoAfterUrl
+
+      if (editingAssignment) {
+        const { error } = await supabase
+          .from('asset_project_assignments')
+          .update(assignmentData)
+          .eq('id', editingAssignment.id)
+        if (error) throw error
+        alert('Asset assignment berhasil diperbarui!')
+      } else {
+        const { error } = await supabase.from('asset_project_assignments').insert(assignmentData)
+        if (error) throw error
+        alert('Asset berhasil ditambahkan ke project!')
+      }
+
       setShowAssignModal(false)
       setSelectedProject(null)
-      setAssignFormData({ asset_id: '', notes: '' })
+      setEditingAssignment(null)
+      setAssignFormData({ asset_id: '', notes: '', photo_before: null, photo_after: null })
       fetchData()
     } catch (error: any) {
       console.error('Error assigning asset:', error)
@@ -208,7 +282,7 @@ export default function AssetProjectsPage() {
             {isMasterAdmin ? 'Kelola proyek-proyek asset' : 'Lihat proyek-proyek asset'}
           </p>
         </div>
-        {isMasterAdmin && (
+        {canManageProjects && (
           <Button onClick={() => setShowForm(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Tambah Project
@@ -444,21 +518,32 @@ export default function AssetProjectsPage() {
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <div className="flex gap-2">
-                          {isMasterAdmin && (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => {
-                                setSelectedProject(project)
-                                setShowAssignModal(true)
-                              }}
-                            >
-                              <Plus className="w-3 h-3 mr-1" />
-                              Asset
-                            </Button>
-                          )}
-                          {isMasterAdmin && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setSelectedProjectForAssets(project)
+                              setShowAssetsModal(true)
+                            }}
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            Lihat Assets
+                          </Button>
+                          {canManageProjects && (
                             <>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => {
+                                  setSelectedProject(project)
+                                  setEditingAssignment(null)
+                                  setAssignFormData({ asset_id: '', notes: '', photo_before: null, photo_after: null })
+                                  setShowAssignModal(true)
+                                }}
+                              >
+                                <Plus className="w-3 h-3 mr-1" />
+                                Asset
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -481,17 +566,16 @@ export default function AssetProjectsPage() {
                               >
                                 <Edit className="w-3 h-3" />
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDelete(project.id)}
-                              >
-                                <Trash2 className="w-3 h-3 text-red-600" />
-                              </Button>
+                              {canEditProject(project) && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleDelete(project.id)}
+                                >
+                                  <Trash2 className="w-3 h-3 text-red-600" />
+                                </Button>
+                              )}
                             </>
-                          )}
-                          {!isMasterAdmin && (
-                            <span className="text-xs text-gray-500">View Only</span>
                           )}
                         </div>
                       </td>
@@ -524,6 +608,7 @@ export default function AssetProjectsPage() {
                   label: `${a.asset_code} - ${a.asset_name}`,
                 }))}
                 required
+                disabled={!!editingAssignment}
               />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -536,15 +621,119 @@ export default function AssetProjectsPage() {
                   rows={3}
                 />
               </div>
+              
+              {/* Foto Before */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Foto Before (Sebelum Project)
+                </label>
+                {assignFormData.photo_before ? (
+                  <div className="relative">
+                    <img
+                      src={URL.createObjectURL(assignFormData.photo_before)}
+                      alt="Before"
+                      className="w-full h-48 object-cover rounded-lg border border-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setAssignFormData({ ...assignFormData, photo_before: null })}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : editingAssignment?.photo_before ? (
+                  <div className="relative">
+                    <img
+                      src={editingAssignment.photo_before}
+                      alt="Before"
+                      className="w-full h-48 object-cover rounded-lg border border-gray-300"
+                    />
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) setAssignFormData({ ...assignFormData, photo_before: file })
+                      }}
+                      className="hidden"
+                      id="photo-before"
+                    />
+                    <label
+                      htmlFor="photo-before"
+                      className="cursor-pointer flex flex-col items-center gap-2"
+                    >
+                      <ImageIcon className="w-8 h-8 text-gray-400" />
+                      <span className="text-sm text-gray-600">Klik untuk upload foto before</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              {/* Foto After */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Foto After (Sesudah Project)
+                </label>
+                {assignFormData.photo_after ? (
+                  <div className="relative">
+                    <img
+                      src={URL.createObjectURL(assignFormData.photo_after)}
+                      alt="After"
+                      className="w-full h-48 object-cover rounded-lg border border-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setAssignFormData({ ...assignFormData, photo_after: null })}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : editingAssignment?.photo_after ? (
+                  <div className="relative">
+                    <img
+                      src={editingAssignment.photo_after}
+                      alt="After"
+                      className="w-full h-48 object-cover rounded-lg border border-gray-300"
+                    />
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) setAssignFormData({ ...assignFormData, photo_after: file })
+                      }}
+                      className="hidden"
+                      id="photo-after"
+                    />
+                    <label
+                      htmlFor="photo-after"
+                      className="cursor-pointer flex flex-col items-center gap-2"
+                    >
+                      <ImageIcon className="w-8 h-8 text-gray-400" />
+                      <span className="text-sm text-gray-600">Klik untuk upload foto after</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-3">
-                <Button type="submit">Tambah Asset</Button>
+                <Button type="submit">{editingAssignment ? 'Update' : 'Tambah Asset'}</Button>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => {
                     setShowAssignModal(false)
                     setSelectedProject(null)
-                    setAssignFormData({ asset_id: '', notes: '' })
+                    setEditingAssignment(null)
+                    setAssignFormData({ asset_id: '', notes: '', photo_before: null, photo_after: null })
                   }}
                 >
                   Batal
@@ -554,6 +743,183 @@ export default function AssetProjectsPage() {
           </Card>
         </div>
       )}
+
+      {/* Modal Lihat Assets dalam Project */}
+      {showAssetsModal && selectedProjectForAssets && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  Assets dalam Project: {selectedProjectForAssets.project_code}
+                </h2>
+                <p className="text-sm text-gray-600">{selectedProjectForAssets.project_name}</p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAssetsModal(false)
+                  setSelectedProjectForAssets(null)
+                }}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              {getProjectAssets(selectedProjectForAssets.id).length === 0 ? (
+                <p className="text-center text-gray-500 py-8">Belum ada asset dalam project ini</p>
+              ) : (
+                getProjectAssets(selectedProjectForAssets.id).map((assignment: any) => (
+                  <div key={assignment.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="font-semibold text-gray-900">
+                          {assignment.assets?.asset_code} - {assignment.assets?.asset_name}
+                        </h3>
+                        {assignment.notes && (
+                          <p className="text-sm text-gray-600 mt-1">{assignment.notes}</p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">
+                          Ditambahkan: {formatDate(assignment.assigned_date)}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        {canManageProjects && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingAssignment(assignment)
+                                setSelectedProject(selectedProjectForAssets)
+                                setAssignFormData({
+                                  asset_id: assignment.asset_id,
+                                  notes: assignment.notes || '',
+                                  photo_before: null,
+                                  photo_after: null,
+                                })
+                                setShowAssetsModal(false)
+                                setShowAssignModal(true)
+                              }}
+                            >
+                              <Edit className="w-3 h-3 mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                if (!confirm('Yakin ingin menghapus asset dari project?')) return
+                                try {
+                                  const { error } = await supabase
+                                    .from('asset_project_assignments')
+                                    .delete()
+                                    .eq('id', assignment.id)
+                                  if (error) throw error
+                                  alert('Asset berhasil dihapus dari project!')
+                                  fetchData()
+                                  setShowAssetsModal(false)
+                                } catch (error: any) {
+                                  alert(error.message || 'Terjadi kesalahan')
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-3 h-3 text-red-600" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {(assignment.photo_before || assignment.photo_after) && (
+                      <div className="grid grid-cols-2 gap-4 mt-4">
+                        {assignment.photo_before && (
+                          <div>
+                            <p className="text-xs font-medium text-gray-700 mb-1">Foto Before</p>
+                            <img
+                              src={assignment.photo_before}
+                              alt="Before"
+                              className="w-full h-32 object-cover rounded border border-gray-300"
+                            />
+                          </div>
+                        )}
+                        {assignment.photo_after && (
+                          <div>
+                            <p className="text-xs font-medium text-gray-700 mb-1">Foto After</p>
+                            <img
+                              src={assignment.photo_after}
+                              alt="After"
+                              className="w-full h-32 object-cover rounded border border-gray-300"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Section Laporan Tabel Asset Projects */}
+      <Card title="Laporan Asset Projects">
+        <div className="mb-4">
+          <p className="text-sm text-gray-600">
+            Total Projects: {projects.length} | Total Assets dalam Projects: {projectAssignments.length}
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">No</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kode Project</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama Project</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Departemen</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah Assets</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Budget</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actual Cost</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal Mulai</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal Selesai</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {projects.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                    Belum ada data project
+                  </td>
+                </tr>
+              ) : (
+                projects.map((project, index) => {
+                  const projectAssets = getProjectAssets(project.id)
+                  return (
+                    <tr key={project.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm">{index + 1}</td>
+                      <td className="px-4 py-3 text-sm font-mono text-gray-900">{project.project_code}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{project.project_name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {(project.departments as any)?.name || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-sm">{getStatusBadge(project.status)}</td>
+                      <td className="px-4 py-3 text-sm text-center">{projectAssets.length}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{formatRupiah(project.budget)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{formatRupiah(project.actual_cost)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{formatDate(project.start_date)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {project.end_date ? formatDate(project.end_date) : '-'}
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   )
 }

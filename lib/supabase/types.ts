@@ -272,6 +272,8 @@ export type Database = {
           asset_id: string
           assigned_date: string
           notes: string | null
+          photo_before: string | null
+          photo_after: string | null
           created_at: string
         }
         Insert: {
@@ -280,6 +282,8 @@ export type Database = {
           asset_id: string
           assigned_date?: string
           notes?: string | null
+          photo_before?: string | null
+          photo_after?: string | null
           created_at?: string
         }
         Update: {
@@ -288,6 +292,8 @@ export type Database = {
           asset_id?: string
           assigned_date?: string
           notes?: string | null
+          photo_before?: string | null
+          photo_after?: string | null
           created_at?: string
         }
       }
